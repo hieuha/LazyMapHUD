@@ -162,8 +162,7 @@ body {
 .row.alert.sel::before { background:var(--red); box-shadow:var(--glow-red); }
 .row .tico { font-family:var(--mono); font-size:12px; text-align:center; line-height:1; }
 .row .rid { font-family:var(--mono); font-size:10.5px; color:var(--txt-0); letter-spacing:0.02em; display:flex; align-items:center; gap:4px; }
-.row .rid .pri { font-size:7px; letter-spacing:0.08em; color:#04070a; background:var(--balloon); padding:0 3px; border-radius:2px; }
-.row .rid .pri.live { background:var(--green); }
+.row .rid .livedot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 5px var(--green); flex:0 0 auto; }
 .row .rid .simb { font-size:7px; letter-spacing:0.08em; color:var(--txt-2); border:1px solid var(--line); padding:0 3px; }
 .row .rtype { font-size:9px; color:var(--txt-2); text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .row .ralt { font-family:var(--mono); font-size:10.5px; color:var(--txt-1); text-align:right; font-variant-numeric:tabular-nums; }
@@ -179,6 +178,8 @@ body {
 /* ---------------------------- HERO + DETAIL ---------------------------- */
 #hero { padding:11px 12px 10px; border-top:1px solid var(--line-2); border-bottom:1px solid var(--line);
   background:linear-gradient(180deg, rgba(10,22,29,0.5), rgba(4,8,11,0.2)); position:relative; flex:none; }
+/* Hidden when no entity is selected/tracked — no stale placeholder readout. */
+#hero.empty { display:none; }
 .hero-id { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
 .hero-id .glyph { font-size:15px; }
 .hero-id .serial { font-size:16px; color:var(--txt-0); letter-spacing:0.06em; }
@@ -195,6 +196,7 @@ body {
 #ascent-cap { display:flex; justify-content:space-between; font-size:8px; color:var(--txt-3); letter-spacing:0.12em; }
 
 #detail { flex:none; padding:10px 12px; border-bottom:1px solid var(--line); }
+#detail.empty { display:none; }
 .dgrid { display:grid; grid-template-columns:1fr 1fr; gap:7px 14px; }
 .dcell .dk { font-size:8px; letter-spacing:0.12em; color:var(--txt-3); text-transform:uppercase; }
 .dcell .dv { font-family:var(--mono); font-size:12px; color:var(--txt-0); font-variant-numeric:tabular-nums; }
@@ -230,9 +232,10 @@ body {
    Each line forced to `display:block` (not just a flex column) so the two
    inline <span> children always wrap onto separate lines regardless of
    container width. */
-#ov-br { bottom:34px; right:52px; text-align:right; }
-#ov-cursor { display:block; }
-#ov-grid { display:block; margin-top:2px; font-size:8px; letter-spacing:0.14em; color:var(--cyan-dim); }
+/* Single-line readout: cursor coords · grid/zoom, right-aligned. */
+#ov-br { bottom:34px; right:52px; display:flex; gap:6px; align-items:baseline; justify-content:flex-end; }
+#ov-br .ov-sep { color:var(--txt-3); }
+#ov-grid { font-size:8px; letter-spacing:0.14em; color:var(--cyan-dim); }
 
 .map-bracket { position:absolute; width:32px; height:32px; border:1px solid var(--cyan); pointer-events:none; z-index:6; opacity:0.8; }
 .mb-tl { top:12px; left:12px; border-right:none; border-bottom:none; }
@@ -252,9 +255,6 @@ body {
 /* ---------------------------- ALTITUDE LADDER (RIGHT) ---------------------------- */
 #ladderwrap { flex:1; position:relative; min-height:0; padding:8px 0; }
 #ladder { display:block; width:100%; height:100%; }
-.ladder-foot { flex:none; border-top:1px solid var(--line); padding:7px 10px; text-align:center; }
-.ladder-foot .lf-k { font-size:8px; letter-spacing:0.16em; color:var(--txt-3); text-transform:uppercase; }
-.ladder-foot .lf-v { font-family:var(--mono); font-size:12px; color:var(--cyan); text-shadow:var(--glow-cyan); }
 #mobile-alt { display:none; }
 
 @media (max-width:767px) {
@@ -270,6 +270,15 @@ body {
   #mobile-alt { display:block; order:3; grid-column:1 / -1; border-top:1px solid var(--line-2); background:linear-gradient(180deg, rgba(6,12,18,0.85), rgba(4,8,11,0.85)); }
   #mobile-alt canvas { display:block; width:100%; height:110px; }
 }
-@media (max-width:767px) { #topbar { flex-wrap:wrap; height:auto; padding:8px 12px; gap:10px; } .brand .sub { display:none; } .stat { padding:0 8px; } #tracking-badge { order:5; } }
+/* Compact mobile topbar: wrap into tidy rows, drop the flex spacer's big gap,
+   hide the UNITS/TIME/MAP labels (buttons are self-explanatory), and shrink Frame. */
+@media (max-width:767px) {
+  #topbar { flex-wrap:wrap; height:auto; padding:7px 10px; gap:6px 8px; white-space:normal; }
+  .topbar-spacer { display:none; }
+  .brand { gap:7px; }
+  .seg .seg-lab, #map-dd-btn .seg-lab { display:none; }
+  .stat { display:none; }
+  #tracking-badge { order:5; }
+}
 @media (max-width:480px) { #ov-tr, #ov-br { display:none; } .stat.opt { display:none; } }
 @media (prefers-reduced-motion:reduce) { .led.blink { animation:none; } #flicker { animation:none; display:none; } }

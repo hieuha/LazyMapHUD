@@ -55,7 +55,8 @@ export function drawLadderVertical(ctx: Ctx, W: number, H: number, entities: Hud
   const list = [...entities]
     .filter((e) => e.cur)
     .sort((a, b) => Number(a.id === store.selectedId) - Number(b.id === store.selectedId));
-  const mx = W - 6 - 20;
+  // Marker sits near the right edge so the row bar runs long.
+  const mx = W - 12;
   list.forEach((e) => {
     const isSel = e.id === store.selectedId;
     const y = altToY(altFtOfMeters(e.cur!.alt_m));
@@ -102,11 +103,20 @@ export function drawLadderVertical(ctx: Ctx, W: number, H: number, entities: Hud
       ctx.lineWidth = 1;
       ctx.strokeRect(axisX, y - 8, W - axisX - 6, 16);
     }
+    // Entity name sits above the bar by the marker. Altitude reads in the dark
+    // left margin — outside the plotting band, on a dark chip — so it stays legible
+    // against the grid. Altitude is in the user's selected unit, no separator.
+    const name = e.id.split('-')[1] || e.id;
+    const altVal = store.units === 'imperial' ? altFtOfMeters(e.cur!.alt_m) : e.cur!.alt_m;
+    const altStr = String(Math.round(altVal));
     ctx.font = (isSel ? '600 ' : '') + '7.5px ui-monospace, monospace';
-    ctx.fillStyle = isSel ? col : 'rgba(159,182,194,0.7)';
-    ctx.textAlign = 'left';
-    const lbl = e.id.split('-')[1] || e.id.slice(-4);
-    ctx.fillText(lbl, mx + 6, y);
+    ctx.textAlign = 'right';
+    const aw = ctx.measureText(altStr).width;
+    ctx.fillStyle = 'rgba(4,7,10,0.92)';
+    ctx.fillRect(axisX - 9 - aw, y - 6, aw + 6, 12);
+    ctx.fillStyle = isSel ? col : 'rgba(159,182,194,0.85)';
+    ctx.fillText(altStr, axisX - 6, y);
+    ctx.fillText(name, mx, y - 6);
   });
   ctx.fillStyle = 'rgba(95,116,128,0.5)';
   ctx.font = '7.5px ui-monospace, monospace';

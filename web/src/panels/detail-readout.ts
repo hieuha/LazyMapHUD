@@ -19,6 +19,15 @@ const setText = (sel: string, v: string): void => {
   if (el) el.textContent = v;
 };
 
+/** Show/hide the hero + detail readout blocks. Hidden when nothing is selected
+ * so the panel collapses to the roster instead of a "—" placeholder readout. */
+const setSelectionVisible = (visible: boolean): void => {
+  ['#hero', '#detail'].forEach((sel) => {
+    const el = $<HTMLElement>(sel);
+    if (el) el.classList.toggle('empty', !visible);
+  });
+};
+
 /** Generic hero "PEAK" reference ceiling — there is no flight-plan summary for
  * live entities, so the ascent bar scales against a fixed altitude ceiling. */
 const HERO_CEILING_M = ALT_MAX_FT / M_TO_FT;
@@ -36,7 +45,6 @@ const DETAIL_FIELD_SELECTORS = [
   '#d-hdg',
   '#d-sats',
   '#d-grid',
-  '#lf-ceil',
 ];
 
 export class DetailReadout {
@@ -74,6 +82,7 @@ export class DetailReadout {
     setText('#h-freq', e.freq ? e.freq.toFixed(1) + ' MHz' : '—');
     setText('#h-class', e.classLabel);
     this.renderMeta(e.meta);
+    setSelectionVisible(true);
   }
 
   /** Reset the top-bar tracking id, hero, detail grid, and metadata block to
@@ -100,6 +109,7 @@ export class DetailReadout {
     const batt = $<HTMLElement>('#d-batt');
     if (batt) batt.innerHTML = '—';
     this.renderMeta(undefined);
+    setSelectionVisible(false);
   }
 
   /** Render the METADATA block for the selected entity's `meta` (D5); hidden when none.
@@ -178,7 +188,5 @@ export class DetailReadout {
     const batt = $<HTMLElement>('#d-batt');
     if (batt) batt.innerHTML = (s.batt || 0).toFixed(1) + '<span class="unit">V</span>';
     setText('#d-grid', this.gridRefScreen(s.lat, s.lon));
-
-    setText('#lf-ceil', formatAltitude(s.alt_m, u));
   }
 }

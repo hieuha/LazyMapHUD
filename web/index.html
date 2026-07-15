@@ -12,7 +12,6 @@
         <div class="brand">
           <span class="glyph"></span>
           <span class="name">TACTICAL&nbsp;OPS</span>
-          <span class="sub mono">C2&nbsp;/&nbsp;TRACK&nbsp;SVC</span>
         </div>
         <div class="feed-pill" id="feed-pill">
           <span class="led blink"></span>
@@ -36,9 +35,6 @@
           <div id="map-dd-pop" role="listbox"><!-- radio options injected --></div>
         </div>
         <div class="topbar-spacer"></div>
-        <div class="stat opt"><span class="k">Targets</span><span class="v cyan" id="stat-count">00</span></div>
-        <div class="stat"><span class="k">Sel&nbsp;Alt</span><span class="v cyan" id="stat-alt">—</span></div>
-        <div class="stat opt"><span class="k">Zoom</span><span class="v" id="stat-zoom">—</span></div>
         <div class="stat opt"><span class="k">Frame</span><span class="v" id="stat-frame">—</span></div>
         <div class="stat"><span class="k">Feed&nbsp;T&nbsp;(UTC)</span><span class="v" id="stat-clock">--:--:--</span></div>
       </header>
@@ -55,7 +51,7 @@
           <div class="roster-colhead"><span></span><span>ID</span><span>Type</span><span>Alt</span><span>St</span></div>
           <div id="roster"></div>
 
-          <div id="hero">
+          <div id="hero" class="empty">
             <div class="hero-id">
               <span class="glyph" id="h-glyph">—</span>
               <span class="serial" id="h-serial">—</span>
@@ -68,7 +64,7 @@
             <div id="ascent-cap"><span id="ascent-label">ALTITUDE</span><span class="mono" id="ascent-pct">—</span></div>
           </div>
 
-          <div id="detail">
+          <div id="detail" class="empty">
             <div class="dgrid">
               <div class="dcell"><div class="dk">Latitude</div><div class="dv" id="d-lat">—</div></div>
               <div class="dcell"><div class="dk">Longitude</div><div class="dv" id="d-lon">—</div></div>
@@ -90,7 +86,7 @@
         <!-- CENTER: map -->
         <section id="center" class="panel">
           <div class="panel-head">
-            <span class="accent"></span><span class="tag">Tactical Map &nbsp;·&nbsp; HANOI&nbsp;GRID&nbsp;OMEGA</span>
+            <span class="accent"></span><span class="tag">Tactical Map &nbsp;·&nbsp; GRID&nbsp;OMEGA</span>
             <span class="count mono" id="map-scale">A1&nbsp;–&nbsp;G10</span>
           </div>
           <div id="mapwrap">
@@ -104,6 +100,7 @@
             <div class="map-overlay u mono" id="ov-dist"><span class="dl">CHASER&nbsp;→&nbsp;<b id="dist-id">—</b></span><span class="dv" id="dist-val">— km</span></div>
             <div class="map-overlay u mono" id="ov-br">
               <span id="ov-cursor">— , —</span>
+              <span class="ov-sep">·</span>
               <span id="ov-grid">GRID&nbsp;A–G&nbsp;/&nbsp;1–10&nbsp;·&nbsp;<span id="ov-zoom">Z—</span></span>
             </div>
           </div>
@@ -114,7 +111,6 @@
           <span class="br tl"></span><span class="br tr"></span><span class="br bl"></span><span class="br br2"></span>
           <div class="panel-head"><span class="accent"></span><span class="tag">Alt&nbsp;Ladder</span></div>
           <div id="ladderwrap"><canvas id="ladder"></canvas></div>
-          <div class="ladder-foot"><div class="lf-k">Sel&nbsp;Alt</div><div class="lf-v mono" id="lf-ceil">—</div></div>
         </section>
 
         <section id="mobile-alt">

@@ -22,7 +22,7 @@ export class Roster {
       const row = document.createElement('div');
       row.className = 'row' + (e.id === store.selectedId ? ' sel' : '');
       row.dataset.id = e.id;
-      const badge = `<span class="pri live">LIVE</span>`;
+      const badge = `<span class="livedot" title="LIVE"></span>`;
       const ticoKind = e.kind === 'radiosonde' ? 'balloon' : e.kind;
       row.innerHTML =
         `<span class="tico t-${ticoKind}">${e.glyph}</span>` +
