@@ -8,10 +8,9 @@ repomix-output.xml
 prompt.md
 ck.md
 
-# Plans & local working docs (keep templates)
-plans/**/*
-!plans/templates/
-!plans/templates/**
+# Plans & concept mockups (local working artifacts)
+plans/
+concepts/
 
 # Env & secrets
 .env
