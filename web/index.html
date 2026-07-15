@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TACTICAL OPS // Live Track HUD</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- ============ TOP BAR ============ -->
+      <header id="topbar">
+        <div class="brand">
+          <span class="glyph"></span>
+          <span class="name">TACTICAL&nbsp;OPS</span>
+          <span class="sub mono">C2&nbsp;/&nbsp;TRACK&nbsp;SVC</span>
+        </div>
+        <div class="feed-pill" id="feed-pill">
+          <span class="led blink"></span>
+          <span class="u" id="feed-label">RECONNECTING</span>
+        </div>
+        <div id="tracking-badge" role="button" tabindex="0" aria-pressed="true" title="Toggle TRACK LOCK"><span class="lock">◎</span><span>TRACKING&nbsp;</span><b id="track-id">—</b></div>
+        <div class="seg opt" id="seg-units">
+          <span class="seg-lab">Units</span>
+          <button data-units="metric" class="on">Metric</button>
+          <button data-units="imperial">Imp</button>
+        </div>
+        <div class="seg opt" id="seg-tz">
+          <span class="seg-lab">Time</span>
+          <button data-tz="utc" class="on">UTC</button>
+          <button data-tz="local">ICT</button>
+        </div>
+        <div class="mapdd opt" id="map-dd">
+          <button id="map-dd-btn" aria-haspopup="true" aria-expanded="false">
+            <span class="seg-lab">Map</span><span class="cur" id="map-dd-cur">WorldImagery</span><span class="car">▾</span>
+          </button>
+          <div id="map-dd-pop" role="listbox"><!-- radio options injected --></div>
+        </div>
+        <div class="topbar-spacer"></div>
+        <div class="stat opt"><span class="k">Targets</span><span class="v cyan" id="stat-count">00</span></div>
+        <div class="stat"><span class="k">Sel&nbsp;Alt</span><span class="v cyan" id="stat-alt">—</span></div>
+        <div class="stat opt"><span class="k">Zoom</span><span class="v" id="stat-zoom">—</span></div>
+        <div class="stat opt"><span class="k">Frame</span><span class="v" id="stat-frame">—</span></div>
+        <div class="stat"><span class="k">Feed&nbsp;T&nbsp;(UTC)</span><span class="v" id="stat-clock">--:--:--</span></div>
+      </header>
+
+      <!-- ============ MAIN ============ -->
+      <div id="main">
+        <!-- LEFT: roster + hero + detail -->
+        <section id="left" class="panel">
+          <span class="br tl"></span><span class="br tr"></span><span class="br bl"></span><span class="br br2"></span>
+          <div class="panel-head">
+            <span class="accent"></span><span class="tag">Entity Roster</span>
+            <span class="count mono" id="roster-count">00</span>
+          </div>
+          <div class="roster-colhead"><span></span><span>ID</span><span>Type</span><span>Alt</span><span>St</span></div>
+          <div id="roster"></div>
+
+          <div id="hero">
+            <div class="hero-id">
+              <span class="glyph" id="h-glyph">—</span>
+              <span class="serial" id="h-serial">—</span>
+              <span class="badge" id="h-badge">—</span>
+            </div>
+            <div class="hero-meta"><b id="h-mfr">—</b> · <b id="h-freq">—</b> · <span id="h-class">—</span></div>
+            <div id="alt-hero"><span class="big mono" id="h-alt-ft">—</span><span class="unit" id="h-alt-unit">M&nbsp;MSL</span></div>
+            <div id="alt-sub"><span class="m mono" id="h-alt-m">—</span> · PEAK&nbsp;<span class="mono" id="h-ceil">—</span>&nbsp;<span id="h-ceil-unit">m</span></div>
+            <div id="ascent-bar"><div id="ascent-fill"></div></div>
+            <div id="ascent-cap"><span id="ascent-label">ALTITUDE</span><span class="mono" id="ascent-pct">—</span></div>
+          </div>
+
+          <div id="detail">
+            <div class="dgrid">
+              <div class="dcell"><div class="dk">Latitude</div><div class="dv" id="d-lat">—</div></div>
+              <div class="dcell"><div class="dk">Longitude</div><div class="dv" id="d-lon">—</div></div>
+              <div class="dcell"><div class="dk">Climb</div><div class="dv" id="d-climb">—</div></div>
+              <div class="dcell"><div class="dk">Gnd Spd</div><div class="dv" id="d-spd">—</div></div>
+              <div class="dcell"><div class="dk">Heading</div><div class="dv" id="d-hdg">—</div></div>
+              <div class="dcell"><div class="dk">Sats</div><div class="dv" id="d-sats">—</div></div>
+              <div class="dcell"><div class="dk">Battery</div><div class="dv" id="d-batt">—</div></div>
+              <div class="dcell"><div class="dk">Grid Ref</div><div class="dv" id="d-grid">—</div></div>
+            </div>
+          </div>
+
+          <div id="meta-block">
+            <div class="panel-head"><span class="accent"></span><span class="tag">Metadata</span></div>
+            <div id="meta-grid"></div>
+          </div>
+        </section>
+
+        <!-- CENTER: map -->
+        <section id="center" class="panel">
+          <div class="panel-head">
+            <span class="accent"></span><span class="tag">Tactical Map &nbsp;·&nbsp; HANOI&nbsp;GRID&nbsp;OMEGA</span>
+            <span class="count mono" id="map-scale">A1&nbsp;–&nbsp;G10</span>
+          </div>
+          <div id="mapwrap">
+            <div id="leaflet"></div>
+            <div id="map-tint"></div>
+            <canvas id="hud"></canvas>
+            <div id="hud-grid"></div>
+            <div class="map-bracket mb-tl"></div><div class="map-bracket mb-tr"></div>
+            <div class="map-bracket mb-bl"></div><div class="map-bracket mb-br"></div>
+
+            <div class="map-overlay u mono" id="ov-dist"><span class="dl">CHASER&nbsp;→&nbsp;<b id="dist-id">—</b></span><span class="dv" id="dist-val">— km</span></div>
+            <div class="map-overlay u mono" id="ov-br">
+              <span id="ov-cursor">— , —</span>
+              <span id="ov-grid">GRID&nbsp;A–G&nbsp;/&nbsp;1–10&nbsp;·&nbsp;<span id="ov-zoom">Z—</span></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT: altitude ladder -->
+        <section id="right" class="panel">
+          <span class="br tl"></span><span class="br tr"></span><span class="br bl"></span><span class="br br2"></span>
+          <div class="panel-head"><span class="accent"></span><span class="tag">Alt&nbsp;Ladder</span></div>
+          <div id="ladderwrap"><canvas id="ladder"></canvas></div>
+          <div class="ladder-foot"><div class="lf-k">Sel&nbsp;Alt</div><div class="lf-v mono" id="lf-ceil">—</div></div>
+        </section>
+
+        <section id="mobile-alt">
+          <div class="panel-head"><span class="accent"></span><span class="tag">Altitude Profile</span></div>
+          <canvas id="ladder-m"></canvas>
+        </section>
+      </div>
+    </div>
+
+    <div id="warn-overlay"></div>
+    <div id="warn-banner"><span class="wico">⚠</span><span id="warn-text">TARGET LOCKED</span></div>
+    <div id="vignette"></div><div id="crt"></div><div id="flicker"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

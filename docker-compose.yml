@@ -1,0 +1,61 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      SQLITE_PATH: /data/lazymap.db
+      SERVE_STATIC: 'true'
+      WS_PATH: /ws
+      # Secrets/config — set these in a local `.env` file (never committed;
+      # see .env.example) that `docker compose` auto-loads, or export them
+      # in the shell before `docker compose up`.
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?set WEBHOOK_SECRET in .env}
+      HISTORY_RETENTION: ${HISTORY_RETENTION:-7d}
+      SONDEHUB_SERIALS: ${SONDEHUB_SERIALS:-}
+      SONDEHUB_POLL_MS: ${SONDEHUB_POLL_MS:-15000}
+      ENABLE_ADSB: ${ENABLE_ADSB:-false}
+      ADSB_URL: ${ADSB_URL:-}
+      ADSB_POLL_MS: ${ADSB_POLL_MS:-5000}
+      # Same-origin behind Caddy by default (no CORS needed); only set this
+      # if the web build is served from a different origin than the API.
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    volumes:
+      # Persistent named volume for the SQLite file (D1) — survives
+      # container recreation/image updates. Backup = copy the file out of
+      # this volume (see docs/deployment.md).
+      - sqlite-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # No published ports on the host — only Caddy is internet-facing;
+    # `app` is reached over the internal compose network as `app:3000`.
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      LAZYMAPHUD_DOMAIN: ${LAZYMAPHUD_DOMAIN:?set LAZYMAPHUD_DOMAIN in .env (or ':80' for a no-TLS test deploy)}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp' # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  sqlite-data:
+  caddy-data:
+  caddy-config:

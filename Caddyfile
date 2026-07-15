@@ -1,0 +1,31 @@
+# Caddy reverse proxy — auto-TLS (Let's Encrypt) for the LazyMapHUD app
+# service (D2: VPS + Docker + Caddy). Handles both the HTTP API/static
+# routes and the `wss://` WebSocket upgrade for the tracking hub on the same
+# origin, so the browser needs no CORS config for same-host deploys.
+#
+# Replace {$LAZYMAPHUD_DOMAIN} with your real domain (set it in the
+# environment Caddy runs with — see docker-compose.yml) or hardcode it.
+# Caddy issues/renews the TLS cert automatically for a real domain; for a
+# bare-IP/no-DNS test deploy, swap the site address for ":80" and drop TLS.
+
+{$LAZYMAPHUD_DOMAIN} {
+	# WebSocket upgrade — Caddy proxies the `Connection: Upgrade` /
+	# `Upgrade: websocket` handshake transparently over the same
+	# reverse_proxy directive as plain HTTP; no special-casing needed for
+	# recent Caddy versions, but the path is called out here for clarity.
+	@ws {
+		path /ws*
+	}
+	reverse_proxy @ws app:3000
+
+	# Everything else (static web build, /healthz, /webhook, /history,
+	# /chaser) — same upstream, plain HTTP proxy.
+	reverse_proxy app:3000
+
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}

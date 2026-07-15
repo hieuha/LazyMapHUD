@@ -1,0 +1,37 @@
+# Keep the Docker build context small and avoid leaking local secrets/state
+# into image layers — everything needed at build time is copied explicitly
+# in the Dockerfile's stages.
+
+node_modules
+**/node_modules
+.git
+.gitignore
+
+# Local dev/data — never ship a dev SQLite file or env into the image.
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+
+# Build outputs (rebuilt inside the image; a stale local `web/dist` should
+# never leak in and shadow the in-image build).
+web/dist
+**/*.tsbuildinfo
+coverage/
+
+# Editor/OS cruft
+.DS_Store
+.vscode
+.idea
+
+# Plans, concepts, docs source assets — not needed at runtime.
+plans/
+concepts/
+.claude/
+
+# Misc local tooling
+*.log

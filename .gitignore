@@ -27,6 +27,13 @@ node_modules/
 coverage/
 *.tsbuildinfo
 
+# Runtime SQLite data (default SQLITE_PATH=./data/lazymap.db)
+/data/
+server/data/
+*.db
+*.db-wal
+*.db-shm
+
 # Logs
 *.log
 npm-debug.log*
