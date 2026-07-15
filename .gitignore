@@ -1,0 +1,45 @@
+# Claude / local tooling
+.claude/
+.gemini/
+.serena/
+.repomixignore
+release-manifest.json
+repomix-output.xml
+prompt.md
+ck.md
+
+# Plans & local working docs (keep templates)
+plans/**/*
+!plans/templates/
+!plans/templates/**
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+
+# Build output & deps
+build/
+dist/
+node_modules/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Worktrees / external refs (local only)
+worktrees/
+external/

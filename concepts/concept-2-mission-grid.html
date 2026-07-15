@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<!--
+  CONCEPT MOCKUP — production swaps faked canvas base for MapLibre GL dark tiles + live webhook→WebSocket entity feed.
+  MISSION GRID — NATO ops dashboard  ·  Concept 2 of 3  ·  Visual selection mockup, not production.
+  Single self-contained file · vanilla JS + Canvas · fully offline via file://
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>MISSION GRID // Real-Time Tracking HUD</title>
+<style>
+  /* ============================ DESIGN TOKENS ============================ */
+  :root {
+    --bg-0:   #070a0f;   /* deepest */
+    --bg-1:   #0a0e14;   /* base charcoal blue-black */
+    --bg-2:   #0e131c;   /* panel */
+    --bg-3:   #131a25;   /* raised */
+    --line:   #1c2634;   /* thin dividers */
+    --line-2: #263243;   /* stronger divider */
+    --grid:   rgba(120,150,190,0.055);
+
+    --amber:  #ffb02e;   /* phosphor amber (primary) */
+    --amber-dim: #b57a1a;
+    --green:  #3fff9f;   /* signal green (dual) */
+    --green-dim: #1f8f5a;
+    --red:    #ff4d5e;
+    --cyan:   #6fd6ff;
+
+    --txt-0:  #e8eef6;   /* bright */
+    --txt-1:  #9fb0c4;   /* muted slate */
+    --txt-2:  #607085;   /* dim slate */
+    --txt-3:  #3d4a5c;   /* faint */
+
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --glow-amber: 0 0 6px rgba(255,176,46,0.55);
+    --glow-green: 0 0 6px rgba(63,255,159,0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg-1);
+    color: var(--txt-1);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.45;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    /* subtle grid-paper background */
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      radial-gradient(ellipse at 50% 0%, #0d1420 0%, var(--bg-1) 55%, var(--bg-0) 100%);
+    background-size: 32px 32px, 32px 32px, 100% 100%;
+  }
+  ::selection { background: rgba(255,176,46,0.3); }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-1); }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #33455c; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ============================ APP SHELL ============================ */
+  #app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* ---------------------------- TOP BAR ---------------------------- */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 46px;
+    padding: 0 14px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    border-bottom: 1px solid var(--line-2);
+    position: relative;
+    z-index: 20;
+  }
+  #topbar::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,176,46,0.25), transparent);
+  }
+  .brand { display: flex; align-items: baseline; gap: 9px; letter-spacing: 0.12em; }
+  .brand .glyph {
+    font-family: var(--mono); font-weight: 700; color: var(--amber);
+    text-shadow: var(--glow-amber); font-size: 15px;
+  }
+  .brand .name { font-weight: 600; color: var(--txt-0); font-size: 13px; letter-spacing: 0.18em; }
+  .brand .sub  { color: var(--txt-2); font-size: 10px; letter-spacing: 0.22em; }
+
+  .live-pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 3px;
+    background: rgba(63,255,159,0.04);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; color: var(--green);
+  }
+  .led {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 6px var(--green); flex: none;
+  }
+  .led.blink { animation: blink 1.4s steps(1) infinite; }
+  @keyframes blink { 0%,60% { opacity: 1; } 61%,100% { opacity: 0.25; } }
+
+  .topbar-spacer { flex: 1; }
+
+  .stat {
+    display: flex; flex-direction: column; align-items: flex-end;
+    line-height: 1.15; padding: 0 12px; border-left: 1px solid var(--line);
+  }
+  .stat .k { font-size: 9px; letter-spacing: 0.16em; color: var(--txt-2); text-transform: uppercase; }
+  .stat .v { font-family: var(--mono); font-size: 14px; color: var(--txt-0); font-variant-numeric: tabular-nums; }
+  .stat .v.amber { color: var(--amber); text-shadow: var(--glow-amber); }
+  .stat .v.green { color: var(--green); text-shadow: var(--glow-green); }
+
+  /* ---------------------------- MAIN GRID ---------------------------- */
+  #main {
+    display: grid;
+    grid-template-columns: 288px 1fr 132px;
+    min-height: 0;
+  }
+  .panel {
+    background: linear-gradient(180deg, rgba(14,19,28,0.75), rgba(10,14,20,0.75));
+    display: flex; flex-direction: column; min-height: 0; min-width: 0;
+    position: relative;
+  }
+  #left  { border-right: 1px solid var(--line-2); }
+  #right { border-left: 1px solid var(--line-2); }
+
+  .panel-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .panel-head .tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+    color: var(--txt-2); text-transform: uppercase;
+  }
+  .panel-head .accent { width: 3px; height: 12px; background: var(--amber); box-shadow: var(--glow-amber); border-radius: 1px; }
+  .panel-head .count { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--amber); }
+
+  /* ---------------------------- ROSTER (LEFT) ---------------------------- */
+  #roster { overflow-y: auto; flex: 1; min-height: 0; }
+  .roster-colhead {
+    display: grid; grid-template-columns: 14px 62px 1fr 52px 22px;
+    gap: 6px; padding: 6px 12px; position: sticky; top: 0;
+    background: var(--bg-2); border-bottom: 1px solid var(--line); z-index: 2;
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.12em;
+    color: var(--txt-3); text-transform: uppercase;
+  }
+  .roster-colhead span:nth-child(4){ text-align: right; }
+  .roster-colhead span:nth-child(5){ text-align: center; }
+
+  .row {
+    display: grid; grid-template-columns: 14px 62px 1fr 52px 22px;
+    gap: 6px; align-items: center;
+    padding: 7px 12px; cursor: pointer;
+    border-bottom: 1px solid rgba(28,38,52,0.5);
+    transition: background 0.12s;
+    position: relative;
+  }
+  .row:hover { background: rgba(255,176,46,0.05); }
+  .row.sel { background: rgba(255,176,46,0.1); }
+  .row.sel::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: var(--amber); box-shadow: var(--glow-amber);
+  }
+  .row .tico { font-family: var(--mono); font-size: 12px; text-align: center; line-height: 1; }
+  .row .rid  { font-family: var(--mono); font-size: 11px; color: var(--txt-0); letter-spacing: 0.03em; }
+  .row .rtype{ font-size: 10px; color: var(--txt-2); text-transform: uppercase; letter-spacing: 0.06em;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .ralt { font-family: var(--mono); font-size: 11px; color: var(--txt-1); text-align: right; font-variant-numeric: tabular-nums; }
+  .row .rstat{ display: flex; justify-content: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.ok    { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .dot.warn  { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+  .dot.crit  { background: var(--red);   box-shadow: 0 0 5px var(--red);   animation: blink 1s steps(1) infinite; }
+
+  /* type accent colors */
+  .t-balloon  { color: var(--cyan); }
+  .t-aircraft { color: var(--amber); }
+  .t-vehicle  { color: var(--green); }
+
+  /* ---------------------------- DETAIL READOUT (LEFT bottom) ---------------------------- */
+  #detail {
+    flex: none; border-top: 1px solid var(--line-2);
+    background: linear-gradient(180deg, rgba(19,26,37,0.6), rgba(10,14,20,0.6));
+    padding: 10px 12px 12px;
+  }
+  #detail .dhead { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  #detail .dico { font-family: var(--mono); font-size: 15px; }
+  #detail .did { font-family: var(--mono); font-size: 13px; color: var(--txt-0); letter-spacing: 0.05em; }
+  #detail .dtype { font-size: 9.5px; color: var(--txt-2); letter-spacing: 0.14em; text-transform: uppercase; margin-left: auto; }
+  .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; }
+  .dcell .dk { font-size: 8.5px; letter-spacing: 0.14em; color: var(--txt-3); text-transform: uppercase; }
+  .dcell .dv { font-family: var(--mono); font-size: 12.5px; color: var(--txt-0); font-variant-numeric: tabular-nums; }
+  .dcell .dv .unit { color: var(--txt-2); font-size: 9.5px; margin-left: 2px; }
+  .dv.climb-up   { color: var(--green); }
+  .dv.climb-down { color: var(--red); }
+
+  /* ---------------------------- MAP (CENTER) ---------------------------- */
+  #center { overflow: hidden; }
+  #mapwrap { position: relative; flex: 1; min-height: 0; }
+  #map { display: block; width: 100%; height: 100%; }
+  .map-overlay {
+    position: absolute; pointer-events: none;
+    font-family: var(--mono); color: var(--txt-2);
+    font-size: 9.5px; letter-spacing: 0.14em;
+  }
+  #ov-tl { top: 10px; left: 12px; }
+  #ov-tr { top: 10px; right: 12px; text-align: right; }
+  #ov-bl { bottom: 10px; left: 12px; }
+  #ov-br { bottom: 10px; right: 12px; text-align: right; }
+  .ov-line { display: block; line-height: 1.5; }
+  .ov-line b { color: var(--amber); font-weight: 400; }
+  .ov-line .g { color: var(--green); }
+
+  .corner {
+    position: absolute; width: 14px; height: 14px; pointer-events: none;
+    border-color: var(--amber-dim); opacity: 0.6;
+  }
+  .corner.tl { top: 6px; left: 6px; border-top: 1px solid; border-left: 1px solid; }
+  .corner.tr { top: 6px; right: 6px; border-top: 1px solid; border-right: 1px solid; }
+  .corner.bl { bottom: 6px; left: 6px; border-bottom: 1px solid; border-left: 1px solid; }
+  .corner.br { bottom: 6px; right: 6px; border-bottom: 1px solid; border-right: 1px solid; }
+
+  /* ---------------------------- ALTITUDE LADDER (RIGHT) ---------------------------- */
+  #ladderwrap { flex: 1; position: relative; min-height: 0; padding: 8px 0 8px; }
+  #ladder { display: block; width: 100%; height: 100%; }
+  .ladder-foot {
+    flex: none; border-top: 1px solid var(--line);
+    padding: 7px 10px; text-align: center;
+  }
+  .ladder-foot .lf-k { font-size: 8px; letter-spacing: 0.16em; color: var(--txt-3); text-transform: uppercase; }
+  .ladder-foot .lf-v { font-family: var(--mono); font-size: 12px; color: var(--amber); text-shadow: var(--glow-amber); }
+
+  /* ---------------------------- MOBILE INLINE GAUGE (hidden desktop) ---------------------------- */
+  #mobile-alt { display: none; }
+
+  /* ============================ RESPONSIVE ============================ */
+  @media (max-width: 767px) {
+    body { font-size: 12.5px; }
+    #main {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(230px, 42vh) auto auto;
+      overflow-y: auto;
+    }
+    #left  { border-right: none; border-bottom: 1px solid var(--line-2); order: 2; }
+    #center { order: 1; border-bottom: 1px solid var(--line-2); min-height: 240px; }
+    #right { display: none; }  /* full ladder hidden on mobile, replaced by inline gauge */
+
+    /* roster becomes horizontally scrollable strip */
+    #roster { display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    .roster-colhead { display: none; }
+    .row {
+      grid-template-columns: none; display: flex; flex-direction: column; align-items: flex-start;
+      gap: 3px; min-width: 128px; border-bottom: none; border-right: 1px solid var(--line);
+      padding: 8px 10px;
+    }
+    .row .ralt { text-align: left; }
+    .row .rstat { justify-content: flex-start; }
+
+    #detail { order: 3; }
+
+    /* mobile inline altitude gauge shown under detail */
+    #mobile-alt {
+      display: block; order: 4; grid-column: 1 / -1;
+      border-top: 1px solid var(--line-2);
+      background: linear-gradient(180deg, rgba(14,19,28,0.8), rgba(10,14,20,0.8));
+    }
+    #mobile-alt canvas { display: block; width: 100%; height: 108px; }
+  }
+
+  @media (max-width: 767px) {
+    #topbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 10px; }
+    .brand .sub { display: none; }
+    .stat { padding: 0 8px; }
+  }
+
+  /* reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .led.blink, .dot.crit { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============================ TOP BAR ============================ -->
+  <header id="topbar">
+    <div class="brand">
+      <span class="glyph">◈</span>
+      <span class="name">MISSION&nbsp;GRID</span>
+      <span class="sub mono">OPS&nbsp;/&nbsp;C2</span>
+    </div>
+    <div class="live-pill">
+      <span class="led blink"></span>
+      <span>LIVE&nbsp;//&nbsp;WEBHOOK&nbsp;FEED</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="stat">
+      <span class="k">Tracked</span>
+      <span class="v amber" id="stat-tracked">0</span>
+    </div>
+    <div class="stat">
+      <span class="k">Airborne</span>
+      <span class="v green" id="stat-air">0</span>
+    </div>
+    <div class="stat">
+      <span class="k">Feed&nbsp;Latency</span>
+      <span class="v" id="stat-lat">— ms</span>
+    </div>
+    <div class="stat">
+      <span class="k">UTC</span>
+      <span class="v" id="stat-clock">--:--:--</span>
+    </div>
+  </header>
+
+  <!-- ============================ MAIN GRID ============================ -->
+  <div id="main">
+
+    <!-- ------------------------ LEFT: ROSTER ------------------------ -->
+    <section id="left" class="panel">
+      <div class="panel-head">
+        <span class="accent"></span>
+        <span class="tag">Entity Roster</span>
+        <span class="count" id="roster-count">00</span>
+      </div>
+      <div class="roster-colhead">
+        <span></span><span>ID</span><span>Type</span><span>Alt</span><span>St</span>
+      </div>
+      <div id="roster"><!-- rows injected --></div>
+
+      <!-- detail readout -->
+      <div id="detail">
+        <div class="dhead">
+          <span class="dico" id="d-ico">◇</span>
+          <span class="did" id="d-id">—</span>
+          <span class="dtype" id="d-type">NO SELECTION</span>
+        </div>
+        <div class="dgrid">
+          <div class="dcell"><div class="dk">Latitude</div><div class="dv" id="d-lat">—</div></div>
+          <div class="dcell"><div class="dk">Longitude</div><div class="dv" id="d-lon">—</div></div>
+          <div class="dcell"><div class="dk">Altitude</div><div class="dv" id="d-alt">—</div></div>
+          <div class="dcell"><div class="dk">Heading</div><div class="dv" id="d-hdg">—</div></div>
+          <div class="dcell"><div class="dk">Speed</div><div class="dv" id="d-spd">—</div></div>
+          <div class="dcell"><div class="dk">Climb Rate</div><div class="dv" id="d-climb">—</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------ CENTER: MAP ------------------------ -->
+    <section id="center" class="panel">
+      <div class="panel-head">
+        <span class="accent" style="background:var(--green);box-shadow:var(--glow-green)"></span>
+        <span class="tag">Tactical Map &nbsp;·&nbsp; SECTOR&nbsp;7&nbsp;NE</span>
+        <span class="count mono" id="map-scale">RNG 120 NM</span>
+      </div>
+      <div id="mapwrap">
+        <canvas id="map"></canvas>
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        <div class="map-overlay" id="ov-tl">
+          <span class="ov-line">STATION <b>KILO-1</b></span>
+          <span class="ov-line">MODE <span class="g">TRACK</span></span>
+        </div>
+        <div class="map-overlay" id="ov-tr">
+          <span class="ov-line">PROJ <b>MERC</b></span>
+          <span class="ov-line" id="ov-cursor">— , —</span>
+        </div>
+        <div class="map-overlay" id="ov-bl">
+          <span class="ov-line">GRID <span class="g">WGS-84</span></span>
+        </div>
+        <div class="map-overlay" id="ov-br">
+          <span class="ov-line">SWEEP <b id="ov-sweep">000°</b></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------ RIGHT: ALTITUDE LADDER ------------------------ -->
+    <section id="right" class="panel">
+      <div class="panel-head">
+        <span class="accent"></span>
+        <span class="tag">Alt&nbsp;Ladder</span>
+      </div>
+      <div id="ladderwrap">
+        <canvas id="ladder"></canvas>
+      </div>
+      <div class="ladder-foot">
+        <div class="lf-k">Ceiling</div>
+        <div class="lf-v mono" id="lf-ceil">— ft</div>
+      </div>
+    </section>
+
+    <!-- ------------------------ MOBILE INLINE ALT GAUGE ------------------------ -->
+    <section id="mobile-alt">
+      <div class="panel-head">
+        <span class="accent"></span>
+        <span class="tag">Altitude Profile</span>
+      </div>
+      <canvas id="ladder-m"></canvas>
+    </section>
+
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   MISSION GRID — concept mockup simulation
+   All data is faked in-browser. Production replaces:
+     - canvas map base  -> MapLibre GL dark tiles
+     - simulated feed    -> webhook -> WebSocket entity stream
+   ========================================================================== */
+(() => {
+  "use strict";
+
+  const TYPE = {
+    BALLOON:  { label: "RADIOSONDE",   glyph: "◉", cls: "t-balloon",  color: "#6fd6ff", ceil: 38000 },
+    AIRCRAFT: { label: "ADS-B",        glyph: "▲", cls: "t-aircraft", color: "#ffb02e", ceil: 41000 },
+    VEHICLE:  { label: "GROUND",       glyph: "▮", cls: "t-vehicle",  color: "#3fff9f", ceil: 200 },
+  };
+
+  // Geographic bounds for the faux sector (arbitrary but plausible)
+  const GEO = { latMin: 33.4, latMax: 35.4, lonMin: -119.6, lonMax: -117.2 };
+  const ALT_MAX = 40000;
+
+  // ------------------------------------------------------------------ entities
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[(Math.random() * arr.length) | 0];
+
+  function makeEntity(i, type) {
+    const t = TYPE[type];
+    const prefix = { BALLOON: "RS", AIRCRAFT: "AC", VEHICLE: "GV" }[type];
+    const id = prefix + "-" + String(100 + i).padStart(3, "0");
+    let alt, climbRate, phase;
+    if (type === "AIRCRAFT") {
+      alt = Math.round(rnd(18000, 38000) / 1000) * 1000; // flight levels
+      climbRate = 0; phase = "cruise";
+    } else if (type === "BALLOON") {
+      alt = rnd(2000, 26000); climbRate = rnd(600, 1000); phase = "ascend";
+    } else {
+      alt = rnd(0, 120); climbRate = 0; phase = "ground";
+    }
+    return {
+      id, type, t,
+      lat: rnd(GEO.latMin + 0.15, GEO.latMax - 0.15),
+      lon: rnd(GEO.lonMin + 0.2, GEO.lonMax - 0.2),
+      alt, targetAlt: alt,
+      heading: rnd(0, 360),
+      speed: type === "VEHICLE" ? rnd(10, 65) : type === "BALLOON" ? rnd(15, 45) : rnd(320, 510),
+      climbRate, phase,
+      status: Math.random() < 0.12 ? "warn" : (Math.random() < 0.04 ? "crit" : "ok"),
+      trail: [],
+      burstAlt: type === "BALLOON" ? rnd(30000, 39000) : null,
+    };
+  }
+
+  const entities = [];
+  const plan = ["AIRCRAFT","BALLOON","AIRCRAFT","VEHICLE","BALLOON","AIRCRAFT","VEHICLE","AIRCRAFT","BALLOON"];
+  plan.forEach((tp, i) => entities.push(makeEntity(i, tp)));
+
+  let selectedId = entities[0].id;
+
+  // ------------------------------------------------------------------ helpers
+  const $ = sel => document.querySelector(sel);
+  const fmt = (n, d = 0) => Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pad = (n) => String(n).padStart(2, "0");
+
+  function latToY(lat, h) { return h - ((lat - GEO.latMin) / (GEO.latMax - GEO.latMin)) * h; }
+  function lonToX(lon, w) { return ((lon - GEO.lonMin) / (GEO.lonMax - GEO.lonMin)) * w; }
+
+  // ------------------------------------------------------------------ ROSTER build
+  const rosterEl = $("#roster");
+  function buildRoster() {
+    rosterEl.innerHTML = "";
+    entities.forEach(e => {
+      const row = document.createElement("div");
+      row.className = "row" + (e.id === selectedId ? " sel" : "");
+      row.dataset.id = e.id;
+      row.innerHTML =
+        `<span class="tico ${e.t.cls}">${e.t.glyph}</span>` +
+        `<span class="rid">${e.id}</span>` +
+        `<span class="rtype">${e.t.label}</span>` +
+        `<span class="ralt">${fmt(e.alt)}</span>` +
+        `<span class="rstat"><span class="dot ${e.status}"></span></span>`;
+      row.addEventListener("click", () => select(e.id));
+      rosterEl.appendChild(row);
+    });
+    $("#roster-count").textContent = pad(entities.length);
+    $("#stat-tracked").textContent = pad(entities.length);
+  }
+
+  function refreshRoster() {
+    entities.forEach(e => {
+      const row = rosterEl.querySelector(`.row[data-id="${e.id}"]`);
+      if (!row) return;
+      row.classList.toggle("sel", e.id === selectedId);
+      row.querySelector(".ralt").textContent = fmt(e.alt);
+      const dot = row.querySelector(".dot");
+      dot.className = "dot " + e.status;
+    });
+  }
+
+  // ------------------------------------------------------------------ SELECT / detail
+  function select(id, fromAuto) {
+    selectedId = id;
+    if (!fromAuto) lastInteract = performance.now();
+    refreshRoster();
+    updateDetail();
+    // scroll roster row into view (desktop)
+    const row = rosterEl.querySelector(`.row[data-id="${id}"]`);
+    if (row && window.innerWidth >= 768) row.scrollIntoView({ block: "nearest" });
+  }
+
+  function updateDetail() {
+    const e = entities.find(x => x.id === selectedId);
+    if (!e) return;
+    $("#d-ico").textContent = e.t.glyph;
+    $("#d-ico").className = "dico " + e.t.cls;
+    $("#d-id").textContent = e.id;
+    $("#d-type").textContent = e.t.label;
+    $("#d-lat").textContent = e.lat.toFixed(4) + "°";
+    $("#d-lon").textContent = e.lon.toFixed(4) + "°";
+    $("#d-alt").innerHTML = fmt(e.alt) + '<span class="unit">ft</span>';
+    $("#d-hdg").innerHTML = pad(Math.round(e.heading)) + (Math.round(e.heading) < 100 ? "" : "") + '°';
+    $("#d-hdg").textContent = String(Math.round(e.heading)).padStart(3, "0") + "°";
+    $("#d-spd").innerHTML = fmt(e.speed) + '<span class="unit">' + (e.type === "VEHICLE" ? "mph" : "kts") + '</span>';
+    const cr = Math.round(e.climbRate);
+    const climbEl = $("#d-climb");
+    climbEl.innerHTML = (cr > 0 ? "+" : "") + fmt(cr) + '<span class="unit">ft/m</span>';
+    climbEl.className = "dv " + (cr > 30 ? "climb-up" : cr < -30 ? "climb-down" : "");
+  }
+
+  // ------------------------------------------------------------------ SIMULATION step
+  function stepSim(dt) {
+    const dtMin = dt / 60000; // dt in ms -> minutes (sped up below)
+    const speedUp = 8;        // make motion visible
+    const m = dtMin * speedUp;
+
+    entities.forEach(e => {
+      // heading drift
+      e.heading = (e.heading + rnd(-8, 8) * m + 360) % 360;
+
+      // move lat/lon by speed+heading (very rough, visual only)
+      const rad = (e.heading - 90) * Math.PI / 180;
+      const spd = e.speed * 0.00016 * m; // scale factor
+      e.lon += Math.cos(rad) * spd;
+      e.lat -= Math.sin(rad) * spd;
+
+      // wrap inside bounds (bounce)
+      if (e.lon < GEO.lonMin + 0.1 || e.lon > GEO.lonMax - 0.1) { e.heading = (540 - e.heading) % 360; e.lon = Math.min(Math.max(e.lon, GEO.lonMin + 0.1), GEO.lonMax - 0.1); }
+      if (e.lat < GEO.latMin + 0.1 || e.lat > GEO.latMax - 0.1) { e.heading = (360 - e.heading) % 360; e.lat = Math.min(Math.max(e.lat, GEO.latMin + 0.1), GEO.latMax - 0.1); }
+
+      // altitude behaviour per type
+      if (e.type === "BALLOON") {
+        if (e.phase === "ascend") {
+          e.alt += e.climbRate * m;
+          if (e.alt >= e.burstAlt) { e.phase = "burst"; e.status = "warn"; e.climbRate = -2600; }
+        } else if (e.phase === "burst") {
+          e.alt += e.climbRate * m;       // rapid descent
+          e.climbRate = Math.max(-3800, e.climbRate - 40 * m);
+          if (e.alt <= 1500) { // reset — new launch
+            e.phase = "ascend"; e.alt = rnd(1500, 3000); e.climbRate = rnd(650, 1000);
+            e.burstAlt = rnd(30000, 39000); e.status = "ok";
+          }
+        }
+      } else if (e.type === "AIRCRAFT") {
+        // occasional flight-level change
+        if (Math.random() < 0.004) e.targetAlt = Math.round(rnd(16000, 39000) / 1000) * 1000;
+        const diff = e.targetAlt - e.alt;
+        if (Math.abs(diff) > 50) {
+          e.climbRate = Math.sign(diff) * Math.min(1800, Math.abs(diff) * 6);
+          e.alt += e.climbRate * m;
+        } else { e.climbRate = 0; e.alt = e.targetAlt; }
+      } else { // VEHICLE
+        e.alt = Math.max(0, e.alt + rnd(-8, 8) * m);
+        e.climbRate = 0;
+      }
+      e.alt = Math.min(ALT_MAX, Math.max(0, e.alt));
+
+      // speed jitter
+      e.speed = Math.max(0, e.speed + rnd(-4, 4) * m);
+
+      // trail sampling (in canvas space handled at draw; store lat/lon)
+      e.trail.push({ lat: e.lat, lon: e.lon });
+      if (e.trail.length > 42) e.trail.shift();
+    });
+  }
+
+  // ------------------------------------------------------------------ MAP canvas
+  const mapCanvas = $("#map");
+  const mctx = mapCanvas.getContext("2d");
+  let MW = 0, MH = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let terrainCache = null;
+
+  function sizeMap() {
+    const r = mapCanvas.parentElement.getBoundingClientRect();
+    MW = r.width; MH = r.height;
+    mapCanvas.width = MW * DPR; mapCanvas.height = MH * DPR;
+    mapCanvas.style.width = MW + "px"; mapCanvas.style.height = MH + "px";
+    mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    terrainCache = null;
+  }
+
+  // deterministic pseudo-noise for contours
+  function noise(x, y) {
+    const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  function drawTerrain() {
+    // base gradient sea/land
+    const g = mctx.createRadialGradient(MW * 0.42, MH * 0.55, 40, MW * 0.5, MH * 0.5, Math.max(MW, MH) * 0.8);
+    g.addColorStop(0, "#0d1521");
+    g.addColorStop(0.55, "#0a111b");
+    g.addColorStop(1, "#070c13");
+    mctx.fillStyle = g;
+    mctx.fillRect(0, 0, MW, MH);
+
+    // faint land masses (blobby regions) via layered radial gradients
+    const blobs = [
+      { x: 0.28, y: 0.62, r: 0.34, c: "rgba(30,52,44,0.30)" },
+      { x: 0.72, y: 0.34, r: 0.28, c: "rgba(38,44,30,0.24)" },
+      { x: 0.60, y: 0.78, r: 0.24, c: "rgba(26,46,52,0.20)" },
+    ];
+    blobs.forEach(b => {
+      const bg = mctx.createRadialGradient(b.x * MW, b.y * MH, 10, b.x * MW, b.y * MH, b.r * Math.max(MW, MH));
+      bg.addColorStop(0, b.c);
+      bg.addColorStop(1, "rgba(0,0,0,0)");
+      mctx.fillStyle = bg;
+      mctx.fillRect(0, 0, MW, MH);
+    });
+
+    // faint contour noise lines
+    mctx.strokeStyle = "rgba(90,120,150,0.05)";
+    mctx.lineWidth = 1;
+    const step = 26;
+    for (let gy = 0; gy < MH; gy += step) {
+      mctx.beginPath();
+      for (let gx = 0; gx <= MW; gx += 8) {
+        const n = noise(gx * 0.01, gy * 0.02) * 14 + Math.sin(gx * 0.02 + gy * 0.05) * 6;
+        const yy = gy + n;
+        gx === 0 ? mctx.moveTo(gx, yy) : mctx.lineTo(gx, yy);
+      }
+      mctx.stroke();
+    }
+  }
+
+  function drawGrid() {
+    mctx.save();
+    mctx.strokeStyle = "rgba(120,150,190,0.09)";
+    mctx.fillStyle = "rgba(120,145,175,0.5)";
+    mctx.lineWidth = 1;
+    mctx.font = "9px ui-monospace, monospace";
+
+    // longitude lines every 0.4°
+    for (let lon = Math.ceil(GEO.lonMin / 0.4) * 0.4; lon <= GEO.lonMax; lon += 0.4) {
+      const x = lonToX(lon, MW);
+      mctx.beginPath(); mctx.moveTo(x, 0); mctx.lineTo(x, MH); mctx.stroke();
+      mctx.fillText(lon.toFixed(1) + "°", x + 3, MH - 6);
+    }
+    // latitude lines every 0.4°
+    for (let lat = Math.ceil(GEO.latMin / 0.4) * 0.4; lat <= GEO.latMax; lat += 0.4) {
+      const y = latToY(lat, MH);
+      mctx.beginPath(); mctx.moveTo(0, y); mctx.lineTo(MW, y); mctx.stroke();
+      mctx.fillText(lat.toFixed(1) + "°", 4, y - 4);
+    }
+    mctx.restore();
+  }
+
+  // range rings + sweep from center station
+  let sweepAng = 0;
+  function drawRings(dt) {
+    const cx = MW * 0.5, cy = MH * 0.5;
+    const maxR = Math.min(MW, MH) * 0.46;
+    mctx.save();
+    mctx.strokeStyle = "rgba(63,255,159,0.10)";
+    mctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+      mctx.beginPath();
+      mctx.arc(cx, cy, (maxR / 4) * i, 0, Math.PI * 2);
+      mctx.stroke();
+    }
+    // crosshair
+    mctx.strokeStyle = "rgba(63,255,159,0.14)";
+    mctx.beginPath();
+    mctx.moveTo(cx - maxR, cy); mctx.lineTo(cx + maxR, cy);
+    mctx.moveTo(cx, cy - maxR); mctx.lineTo(cx, cy + maxR);
+    mctx.stroke();
+
+    // rotating sweep
+    sweepAng = (sweepAng + dt * 0.00045) % (Math.PI * 2);
+    const sweepGrad = mctx.createConicGradient ? null : null;
+    mctx.save();
+    mctx.translate(cx, cy);
+    mctx.rotate(sweepAng);
+    const grad = mctx.createLinearGradient(0, 0, maxR, 0);
+    grad.addColorStop(0, "rgba(63,255,159,0.16)");
+    grad.addColorStop(1, "rgba(63,255,159,0)");
+    mctx.beginPath();
+    mctx.moveTo(0, 0);
+    mctx.arc(0, 0, maxR, -0.28, 0);
+    mctx.closePath();
+    mctx.fillStyle = grad;
+    mctx.fill();
+    mctx.restore();
+
+    // station marker
+    mctx.fillStyle = "#3fff9f";
+    mctx.shadowColor = "#3fff9f"; mctx.shadowBlur = 8;
+    mctx.beginPath(); mctx.arc(cx, cy, 3, 0, Math.PI * 2); mctx.fill();
+    mctx.shadowBlur = 0;
+    mctx.restore();
+
+    $("#ov-sweep").textContent = String(Math.round(sweepAng * 180 / Math.PI)).padStart(3, "0") + "°";
+  }
+
+  function drawEntities() {
+    entities.forEach(e => {
+      const sel = e.id === selectedId;
+      const x = lonToX(e.lon, MW), y = latToY(e.lat, MH);
+      const col = e.t.color;
+
+      // trail
+      if (e.trail.length > 1) {
+        for (let i = 1; i < e.trail.length; i++) {
+          const a = e.trail[i - 1], b = e.trail[i];
+          const ax = lonToX(a.lon, MW), ay = latToY(a.lat, MH);
+          const bx = lonToX(b.lon, MW), by = latToY(b.lat, MH);
+          mctx.strokeStyle = col.replace(")", "").replace("rgb", "rgba");
+          mctx.globalAlpha = (i / e.trail.length) * (sel ? 0.55 : 0.28);
+          mctx.strokeStyle = col;
+          mctx.lineWidth = sel ? 1.6 : 1;
+          mctx.beginPath(); mctx.moveTo(ax, ay); mctx.lineTo(bx, by); mctx.stroke();
+        }
+        mctx.globalAlpha = 1;
+      }
+
+      // selection ring
+      if (sel) {
+        mctx.strokeStyle = "#ffb02e";
+        mctx.lineWidth = 1.4;
+        mctx.setLineDash([3, 3]);
+        mctx.beginPath(); mctx.arc(x, y, 13, 0, Math.PI * 2); mctx.stroke();
+        mctx.setLineDash([]);
+        // corner ticks
+        mctx.strokeStyle = "#ffb02e";
+        [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx, sy]) => {
+          mctx.beginPath();
+          mctx.moveTo(x + sx*17, y + sy*17 - sy*5); mctx.lineTo(x + sx*17, y + sy*17);
+          mctx.lineTo(x + sx*17 - sx*5, y + sy*17); mctx.stroke();
+        });
+      }
+
+      // marker by type
+      mctx.save();
+      mctx.translate(x, y);
+      mctx.shadowColor = col; mctx.shadowBlur = sel ? 10 : 5;
+      mctx.fillStyle = col; mctx.strokeStyle = col;
+      if (e.type === "AIRCRAFT") {
+        mctx.rotate((e.heading) * Math.PI / 180);
+        mctx.beginPath();
+        mctx.moveTo(0, -6); mctx.lineTo(4.5, 5); mctx.lineTo(0, 2.5); mctx.lineTo(-4.5, 5);
+        mctx.closePath(); mctx.fill();
+      } else if (e.type === "BALLOON") {
+        mctx.beginPath(); mctx.arc(0, 0, 4.5, 0, Math.PI * 2); mctx.fill();
+        mctx.globalAlpha = 0.4;
+        mctx.beginPath(); mctx.arc(0, 0, 7, 0, Math.PI * 2); mctx.stroke();
+        mctx.globalAlpha = 1;
+      } else { // vehicle - square
+        mctx.fillRect(-3.5, -3.5, 7, 7);
+      }
+      mctx.restore();
+      mctx.shadowBlur = 0;
+
+      // label
+      if (sel || e.type !== "VEHICLE") {
+        mctx.font = (sel ? "600 " : "") + "9px ui-monospace, monospace";
+        mctx.fillStyle = sel ? "#ffb02e" : "rgba(159,176,196,0.75)";
+        mctx.fillText(e.id, x + 9, y - 7);
+        if (sel) {
+          mctx.fillStyle = "rgba(255,176,46,0.7)";
+          mctx.fillText("FL" + String(Math.round(e.alt / 100)).padStart(3, "0"), x + 9, y + 3);
+        }
+      }
+    });
+  }
+
+  // clicking map to select nearest entity
+  mapCanvas.addEventListener("click", ev => {
+    const r = mapCanvas.getBoundingClientRect();
+    const px = ev.clientX - r.left, py = ev.clientY - r.top;
+    let best = null, bd = 1e9;
+    entities.forEach(e => {
+      const dx = lonToX(e.lon, MW) - px, dy = latToY(e.lat, MH) - py;
+      const d = dx*dx + dy*dy;
+      if (d < bd) { bd = d; best = e; }
+    });
+    if (best && bd < 900) select(best.id);
+  });
+  mapCanvas.addEventListener("mousemove", ev => {
+    const r = mapCanvas.getBoundingClientRect();
+    const px = ev.clientX - r.left, py = ev.clientY - r.top;
+    const lon = GEO.lonMin + (px / MW) * (GEO.lonMax - GEO.lonMin);
+    const lat = GEO.latMin + (1 - py / MH) * (GEO.latMax - GEO.latMin);
+    $("#ov-cursor").textContent = lat.toFixed(3) + " , " + lon.toFixed(3);
+  });
+
+  // ------------------------------------------------------------------ ALT LADDER canvas (the signature)
+  function makeLadder(canvasId, opts) {
+    const cv = document.querySelector(canvasId);
+    const ctx = cv.getContext("2d");
+    let W = 0, H = 0;
+    const horizontal = opts && opts.horizontal;
+
+    function size() {
+      const r = cv.parentElement.getBoundingClientRect();
+      W = r.width; H = horizontal ? 108 : r.height;
+      cv.width = W * DPR; cv.height = H * DPR;
+      cv.style.width = W + "px"; cv.style.height = H + "px";
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      if (horizontal) drawHorizontal(); else drawVertical();
+    }
+
+    // ---- vertical desktop ladder ----
+    function drawVertical() {
+      const padT = 16, padB = 22, axisX = 34;
+      const top = padT, bot = H - padB;
+      const altToY = a => bot - (a / ALT_MAX) * (bot - top);
+
+      // spine
+      ctx.strokeStyle = "rgba(38,50,67,0.9)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(axisX, top); ctx.lineTo(axisX, bot); ctx.stroke();
+
+      // gradient band behind (altitude zones)
+      const band = ctx.createLinearGradient(0, top, 0, bot);
+      band.addColorStop(0, "rgba(111,214,255,0.05)");   // high / space
+      band.addColorStop(0.55, "rgba(255,176,46,0.035)");
+      band.addColorStop(1, "rgba(63,255,159,0.05)");     // ground
+      ctx.fillStyle = band;
+      ctx.fillRect(axisX, top, W - axisX - 6, bot - top);
+
+      // ticks every 5k
+      ctx.font = "8.5px ui-monospace, monospace";
+      ctx.textBaseline = "middle";
+      for (let a = 0; a <= ALT_MAX; a += 5000) {
+        const y = altToY(a);
+        const major = a % 10000 === 0;
+        ctx.strokeStyle = major ? "rgba(96,112,133,0.55)" : "rgba(60,74,92,0.5)";
+        ctx.beginPath(); ctx.moveTo(axisX - (major ? 6 : 3), y); ctx.lineTo(axisX, y); ctx.stroke();
+        ctx.fillStyle = major ? "rgba(159,176,196,0.85)" : "rgba(96,112,133,0.6)";
+        ctx.textAlign = "right";
+        const lbl = a === 0 ? "GND" : (a / 1000) + "k";
+        ctx.fillText(lbl, axisX - 8, y);
+        // faint gridline into track area
+        ctx.strokeStyle = "rgba(60,74,92,0.18)";
+        ctx.beginPath(); ctx.moveTo(axisX, y); ctx.lineTo(W - 4, y); ctx.stroke();
+      }
+
+      // entity markers — sort so selected drawn last
+      const trackX0 = axisX + 6, trackX1 = W - 6;
+      const sorted = [...entities].sort((a, b) => (a.id === selectedId) - (b.id === selectedId));
+
+      // dodge overlapping labels: bucket by y
+      sorted.forEach(e => {
+        const sel = e.id === selectedId;
+        const y = altToY(e.alt);
+        const col = e.t.color;
+
+        // connector line
+        ctx.strokeStyle = sel ? "rgba(255,176,46,0.5)" : "rgba(96,112,133,0.22)";
+        ctx.lineWidth = sel ? 1.4 : 1;
+        ctx.beginPath(); ctx.moveTo(trackX0, y); ctx.lineTo(trackX1 - 20, y); ctx.stroke();
+
+        // climb-rate arrow indicator on the axis
+        if (Math.abs(e.climbRate) > 40) {
+          ctx.fillStyle = e.climbRate > 0 ? "#3fff9f" : "#ff4d5e";
+          const up = e.climbRate > 0;
+          const ax = axisX + 3, ay = y;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay + (up ? -3 : 3));
+          ctx.lineTo(ax - 2.5, ay + (up ? 1 : -1));
+          ctx.lineTo(ax + 2.5, ay + (up ? 1 : -1));
+          ctx.closePath(); ctx.fill();
+        }
+
+        // marker dot
+        const mx = trackX1 - 20;
+        ctx.save();
+        ctx.shadowColor = col; ctx.shadowBlur = sel ? 9 : 4;
+        ctx.fillStyle = col;
+        if (e.type === "AIRCRAFT") {
+          ctx.fillRect(mx - 3, y - 3, 6, 6);
+        } else if (e.type === "BALLOON") {
+          ctx.beginPath(); ctx.arc(mx, y, 3.6, 0, Math.PI * 2); ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(mx, y - 3.6); ctx.lineTo(mx + 3.4, y + 2.2); ctx.lineTo(mx - 3.4, y + 2.2);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+
+        // id label
+        ctx.font = (sel ? "600 " : "") + "8px ui-monospace, monospace";
+        ctx.fillStyle = sel ? "#ffb02e" : "rgba(159,176,196,0.7)";
+        ctx.textAlign = "left";
+        ctx.fillText(e.id.split("-")[1], mx + 6, y);
+
+        if (sel) {
+          // highlight band
+          ctx.fillStyle = "rgba(255,176,46,0.08)";
+          ctx.fillRect(axisX, y - 8, W - axisX - 6, 16);
+          ctx.strokeStyle = "rgba(255,176,46,0.35)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(axisX, y - 8, W - axisX - 6, 16);
+          // altitude tag on axis
+          ctx.fillStyle = "#ffb02e";
+          ctx.font = "600 8.5px ui-monospace, monospace";
+          ctx.textAlign = "left";
+        }
+      });
+
+      // header ticks label
+      ctx.fillStyle = "rgba(96,112,133,0.5)";
+      ctx.font = "7.5px ui-monospace, monospace";
+      ctx.textAlign = "left";
+      ctx.fillText("FT ×1000", 4, top - 8 < 6 ? 8 : top - 8);
+    }
+
+    // ---- horizontal mobile gauge ----
+    function drawHorizontal() {
+      const padL = 30, padR = 10, top = 10, bot = H - 20;
+      const axisY = bot;
+      const altToX = a => padL + (a / ALT_MAX) * (W - padL - padR);
+
+      // baseline
+      ctx.strokeStyle = "rgba(38,50,67,0.9)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, axisY); ctx.lineTo(W - padR, axisY); ctx.stroke();
+
+      ctx.font = "8px ui-monospace, monospace";
+      ctx.textBaseline = "top";
+      for (let a = 0; a <= ALT_MAX; a += 10000) {
+        const x = altToX(a);
+        ctx.strokeStyle = "rgba(60,74,92,0.5)";
+        ctx.beginPath(); ctx.moveTo(x, axisY); ctx.lineTo(x, axisY + 4); ctx.stroke();
+        ctx.fillStyle = "rgba(96,112,133,0.7)";
+        ctx.textAlign = "center";
+        ctx.fillText(a === 0 ? "GND" : (a / 1000) + "k", x, axisY + 6);
+      }
+
+      entities.forEach(e => {
+        const sel = e.id === selectedId;
+        const x = altToX(e.alt);
+        const col = e.t.color;
+        // stem
+        ctx.strokeStyle = sel ? "rgba(255,176,46,0.6)" : "rgba(96,112,133,0.3)";
+        ctx.lineWidth = sel ? 1.4 : 1;
+        ctx.beginPath(); ctx.moveTo(x, axisY); ctx.lineTo(x, top + 6); ctx.stroke();
+        // dot
+        ctx.save();
+        ctx.shadowColor = col; ctx.shadowBlur = sel ? 9 : 4;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(x, top + 6, sel ? 4.5 : 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        if (sel) {
+          ctx.fillStyle = "#ffb02e";
+          ctx.font = "600 8px ui-monospace, monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(e.id.split("-")[1], x, top - 4);
+        }
+      });
+    }
+
+    size();
+    return { draw, size };
+  }
+
+  const ladder = makeLadder("#ladder", {});
+  const ladderM = makeLadder("#ladder-m", { horizontal: true });
+
+  // ------------------------------------------------------------------ top-bar stats
+  function updateStats() {
+    const air = entities.filter(e => e.alt > 500).length;
+    $("#stat-air").textContent = pad(air);
+    const ceil = Math.max(...entities.map(e => e.alt));
+    $("#lf-ceil").textContent = fmt(Math.round(ceil / 100) * 100) + " ft";
+    // fake latency wobble
+    $("#stat-lat").textContent = (14 + Math.round(Math.sin(performance.now() / 1400) * 6 + Math.random() * 4)) + " ms";
+  }
+
+  function tickClock() {
+    const d = new Date();
+    $("#stat-clock").textContent = pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds());
+  }
+
+  // ------------------------------------------------------------------ auto-cycle when idle
+  let lastInteract = performance.now();
+  let cycleTimer = 0;
+  function autoCycle(dt) {
+    if (performance.now() - lastInteract < 6000) return;
+    cycleTimer += dt;
+    if (cycleTimer > 6000) {
+      cycleTimer = 0;
+      const idx = entities.findIndex(e => e.id === selectedId);
+      const next = entities[(idx + 1) % entities.length];
+      select(next.id, true);
+    }
+  }
+
+  // ------------------------------------------------------------------ MAIN LOOP
+  let last = performance.now();
+  let acc = 0;
+  function loop(now) {
+    const dt = Math.min(now - last, 60);
+    last = now;
+
+    stepSim(dt);
+    autoCycle(dt);
+
+    // map
+    drawTerrain();
+    drawGrid();
+    drawRings(dt);
+    drawEntities();
+
+    // ladders
+    ladder.draw();
+    if (window.innerWidth < 768) ladderM.draw();
+
+    // periodic light updates
+    acc += dt;
+    if (acc > 250) {
+      acc = 0;
+      refreshRoster();
+      updateDetail();
+      updateStats();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // ------------------------------------------------------------------ boot + resize
+  function onResize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    sizeMap();
+    ladder.size();
+    ladderM.size();
+  }
+  window.addEventListener("resize", onResize);
+
+  buildRoster();
+  updateDetail();
+  sizeMap();
+  ladder.size();
+  ladderM.size();
+  tickClock();
+  setInterval(tickClock, 1000);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
