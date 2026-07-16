@@ -25,6 +25,37 @@ Internet --443/tcp,udp--> [caddy] --3000/tcp (internal)--> [app]
 
 ## First deploy
 
+### One-shot, bare metal — no Docker (recommended)
+
+On a fresh Ubuntu/Debian VPS with your domain's DNS pointed at it and ports
+80/443 open:
+
+```bash
+git clone <this-repo> lazymaphud && cd lazymaphud
+sudo ./scripts/deploy-vps.sh hud.example.com
+```
+
+`scripts/deploy-vps.sh` installs Node 20 + pnpm + native Caddy (if missing),
+builds the web bundle, writes `.env` (generating a strong `WEBHOOK_SECRET`),
+installs a hardened **systemd** service `lazymaphud` that runs the Fastify
+server (which also serves the built web + WebSocket hub on port 3000), and
+points Caddy at `localhost:3000` for automatic Let's Encrypt TLS. Idempotent —
+re-run to redeploy. Use `:80` as the domain for a local, no-TLS smoke test.
+
+```bash
+systemctl status lazymaphud          # service state
+journalctl -u lazymaphud -f          # live logs
+sudo ./scripts/deploy-vps.sh <dom>   # redeploy after a git pull / .env change
+```
+
+Then review the optional vars (`SONDEHUB_SERIALS` / `ENABLE_ADSB` /
+`CORS_ORIGIN`) in `.env` and re-run if you change them.
+
+### Alternative: Docker Compose
+
+The repo also ships a `docker-compose.yml` + `Dockerfile` (app + Caddy). If
+you prefer containers:
+
 ```bash
 git clone <this-repo> lazymaphud && cd lazymaphud
 cp .env.example .env
@@ -73,35 +104,35 @@ If durable history ever becomes a requirement, reintroduce a persistent
 store behind the existing `HistoryRepo` interface (`server/src/store/history-repo.ts`)
 — the rest of the server is written against that interface and would not change.
 
-## Gating `/chaser` before public exposure
+## Security posture — public, open-feed by design
 
-`POST /chaser` is intentionally unauthenticated (see
-`docs/webhook-contract.md`) — the chaser device page can't hold the webhook
-HMAC secret client-side. **This is safe only on a trusted network.** Before
-exposing this deployment on the open internet, pick one:
+This deployment is intended to be **public**: the map/WebSocket are readable
+by anyone, and `POST /chaser` accepts unauthenticated position feeds from
+anyone (the chaser device page can't hold the HMAC secret client-side).
+That's an accepted design choice — anyone who finds the URL can watch the
+map and inject `chaser` entities. The guards that remain in place:
 
-1. **VPN-only chaser path.** Keep the chaser device on a Tailscale/WireGuard
-   VPN that reaches the VPS privately, and block `/chaser` at Caddy for
-   any request not coming from the VPN's IP range:
-   ```caddyfile
-   handle /chaser {
-       @not_trusted not remote_ip 100.64.0.0/10   # example: Tailscale CGNAT range
-       respond @not_trusted 403
-       reverse_proxy app:3000
-   }
-   ```
-2. **Device token.** Add a shared-secret query param or header that chase mode
-   includes on every POST, checked in `chaser-route.ts` before the rate
-   limiter — the simplest code change if VPN isn't an option; not yet
-   implemented in this codebase (tracked as a pre-public-launch follow-up,
-   not blocking the initial trusted-network/staging deploy this phase ships).
-3. **mTLS at Caddy** for the `/chaser` path specifically, issuing a client
-   cert to the chaser device — most robust, more setup.
+- **`POST /webhook`** stays HMAC-gated (needs `WEBHOOK_SECRET`) — only signed
+  sources can push non-chaser entities.
+- **Per-IP rate limits** (webhook 20/s, chaser 5/s) + body-size caps (64KB /
+  4KB) + meta caps bound abuse. The server sets `trustProxy: true`, so these
+  apply per **real client IP** (via Caddy's `X-Forwarded-For`), not per proxy.
+- **Bind to localhost.** The bare-metal deploy sets `HOST=127.0.0.1` so the
+  app port isn't reachable directly (only via Caddy) — which also keeps
+  `trustProxy` safe from `X-Forwarded-For` spoofing. (Under Docker the app is
+  `expose`-only / unpublished, giving the same property.)
 
-Until one of these is in place, treat any public deployment's `/chaser`
-endpoint as **write-open to anyone who finds the URL** — they can inject
-fake `chaser` entities onto the map. `/webhook` is not affected (HMAC-gated
-regardless of network).
+If you later want to lock down the open `/chaser` feed or the public map,
+gate them at Caddy — e.g. `basicauth` for the whole site, or restrict
+`/chaser` to a VPN IP range:
+
+```caddyfile
+handle /chaser {
+    @untrusted not remote_ip 100.64.0.0/10   # e.g. Tailscale CGNAT range
+    respond @untrusted 403
+    reverse_proxy localhost:3000
+}
+```
 
 ## CORS
 
