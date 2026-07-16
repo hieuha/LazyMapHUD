@@ -25,6 +25,11 @@ const PORT = Number(process.env.PORT ?? 3000);
 const HISTORY_RETENTION_MS = parseDurationMs(process.env.HISTORY_RETENTION ?? '7d');
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const WS_PATH = process.env.WS_PATH ?? '/ws';
+// Listen host. Default 0.0.0.0 (Docker: the app is only reachable on the
+// internal compose network). On a bare-metal deploy set HOST=127.0.0.1 so the
+// port isn't exposed to the internet directly — only the local Caddy proxy
+// reaches it (which also keeps trustProxy safe from X-Forwarded-For spoofing).
+const HOST = process.env.HOST ?? '0.0.0.0';
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000; // hourly
 
 // CORS (Phase 7 hardening): off/same-origin by default. Set CORS_ORIGIN to a
@@ -60,6 +65,12 @@ const ADSB_POLL_MS = Number(process.env.ADSB_POLL_MS ?? 5_000);
 
 const app = Fastify({
   logger: true,
+  // Behind the Caddy reverse proxy, use X-Forwarded-For as the client IP so
+  // the per-IP rate limiter (the only abuse guard on the open endpoints) and
+  // logs see the real client, not the proxy. Safe because the app is only
+  // reachable via the proxy: bind HOST=127.0.0.1 on bare metal (see the deploy
+  // script), and it's `expose`-only (unpublished) under Docker.
+  trustProxy: true,
 });
 
 const repo = new HistoryRepo();
@@ -163,7 +174,7 @@ async function start(): Promise<void> {
     pruneTimer.unref();
 
     await registerOptionalPlugins();
-    await app.listen({ port: PORT, host: '0.0.0.0' });
+    await app.listen({ port: PORT, host: HOST });
 
     hub = new WsHub({ store, server: app.server, path: WS_PATH });
     app.log.info(`WebSocket hub listening on ${WS_PATH}`);

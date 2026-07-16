@@ -72,6 +72,10 @@ export const EntitySchema = z.object({
 // adapter-routing selector (query/body), not tracked data.
 const CORE_KEYS = new Set(['id', 'name', 'type', 'lat', 'lon', 'altitude_m', 'ts', 'meta', 'source']);
 
+// Keys that could pollute the prototype chain — never copied into meta (the
+// webhook is a public, open-feed endpoint; this is cheap defense-in-depth).
+const UNSAFE_META_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /**
  * Collect a raw payload's non-core scalar fields into an EntityMeta bag,
  * merged over an explicit `meta` object when the caller also sent one.
@@ -84,7 +88,7 @@ export function collectMeta(
 ): EntityMeta | undefined {
   const meta: EntityMeta = { ...(explicit ?? {}) };
   for (const [key, value] of Object.entries(record)) {
-    if (CORE_KEYS.has(key)) continue;
+    if (CORE_KEYS.has(key) || UNSAFE_META_KEYS.has(key)) continue;
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       meta[key] = value;
     }
