@@ -137,7 +137,7 @@ All variables live in `.env.example` (copy to `.env`, never commit `.env`).
 | `CORS_ORIGIN` | _(empty — same-origin only)_ | Comma-separated allowed origins (or `*`) for cross-origin `/history`, `/webhook`, `/chaser` access. Unneeded for the standard same-origin Caddy deploy. |
 | `SERVE_STATIC` | `false` | When `true`, this Fastify server also serves the built `web/dist` (both HTML entries) — used by the single-container Docker deploy |
 | `STATIC_ROOT` | `../web/dist` (relative to `server/`) | Override the directory served when `SERVE_STATIC=true` |
-| `VITE_WS_URL` | `ws://localhost:3000/ws` | (web) WebSocket URL the HUD connects to |
+| `VITE_WS_URL` | _(same-origin `ws(s)://<host>/ws`)_ | (web) Optional WebSocket URL override; defaults to same-origin (works in dev + behind Caddy) |
 | `VITE_API_URL` | _(unset — same-origin)_ | (web) API origin for `/history`/`/chaser`; only set if the API is on a different origin than the web build (and set `CORS_ORIGIN` to match) |
 | `LAZYMAPHUD_DOMAIN` | _(required for `docker compose`)_ | Public domain Caddy issues a TLS cert for; use `:80` for a local no-TLS smoke test |
 

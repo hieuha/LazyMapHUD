@@ -8,11 +8,19 @@ import type { EntitySource, EntitySourceHandlers } from './entity-source.js';
 import { Reconnector, type ReconnectStatus } from '../net/reconnect.js';
 import { decodeWireMessage } from '../net/wire-decode.js';
 
-const DEFAULT_WS_URL = 'ws://localhost:3000/ws';
-
 function wsUrl(): string {
+  // Explicit override wins (e.g. cross-origin API).
   const fromEnv = import.meta.env.VITE_WS_URL as string | undefined;
-  return (fromEnv && fromEnv.trim()) || DEFAULT_WS_URL;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  // Otherwise derive a SAME-ORIGIN WebSocket URL from the current page: wss://
+  // on an https page (production behind Caddy), ws:// otherwise (dev, where
+  // Vite proxies /ws to the API). This makes the production build work on any
+  // domain with no build-time env var.
+  if (typeof window !== 'undefined' && window.location) {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${window.location.host}/ws`;
+  }
+  return 'ws://localhost:3000/ws';
 }
 
 export class WebSocketSource implements EntitySource {
