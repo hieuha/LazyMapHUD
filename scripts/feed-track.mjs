@@ -41,6 +41,7 @@ console.log(`feeding ${frames.length} frames of ${ID} -> ${ENDPOINT} every ${PER
 function toEntity(f, seq) {
   return {
     id: ID,
+    name: ID,
     type: 'balloon',
     lat: f.lat,
     lon: f.lon,

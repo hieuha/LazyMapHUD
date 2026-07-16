@@ -1,0 +1,15 @@
+{
+  "_hint": "Copy this file, replace targets with real data, then run: SEED=./scripts/fixtures/<your>.json WEBHOOK_SECRET=xxx node scripts/simulate-targets.mjs . Required per target: name, type (balloon|aircraft|vehicle), lat, lon, altitude_m. Optional: heading (deg), speed_ms, climb_ms (seed the motion for dead-reckoning). Any other key (callsign, freq_mhz, sats, ...) becomes flexible metadata shown in the HUD.",
+  "targets": [
+    { "name": "VN-A320-1", "type": "aircraft", "lat": 21.05, "lon": 105.90, "altitude_m": 9500, "heading": 250, "speed_ms": 230, "callsign": "HVN201", "freq_mhz": 118.1 },
+    { "name": "VN-A321-2", "type": "aircraft", "lat": 20.95, "lon": 105.70, "altitude_m": 8200, "heading": 65, "speed_ms": 210, "callsign": "HVN338", "freq_mhz": 121.5 },
+    { "name": "ADS-B-3", "type": "aircraft", "lat": 21.20, "lon": 106.00, "altitude_m": 11000, "heading": 180, "speed_ms": 245, "callsign": "BAV512" },
+    { "name": "RS41-Y0322352", "type": "balloon", "lat": 21.02, "lon": 105.85, "altitude_m": 1500, "heading": 300, "speed_ms": 9, "climb_ms": 5, "callsign": "Y0322352", "freq_mhz": 403.0, "sats": 9, "batt_v": 3.1 },
+    { "name": "RS41-Y0322353", "type": "balloon", "lat": 21.10, "lon": 105.95, "altitude_m": 12000, "heading": 280, "speed_ms": 12, "climb_ms": 5, "callsign": "Y0322353", "freq_mhz": 404.5, "sats": 8, "batt_v": 2.9 },
+    { "name": "Pilot-Balloon-6", "type": "balloon", "lat": 20.90, "lon": 105.75, "altitude_m": 6000, "heading": 310, "speed_ms": 7, "climb_ms": 4 },
+    { "name": "Recovery-Van-7", "type": "vehicle", "lat": 21.03, "lon": 105.84, "altitude_m": 15, "heading": 90, "speed_ms": 16, "plate": "29A-12345" },
+    { "name": "Chase-Truck-8", "type": "vehicle", "lat": 21.00, "lon": 105.88, "altitude_m": 12, "heading": 200, "speed_ms": 12, "plate": "30F-67890" },
+    { "name": "Motorbike-9", "type": "vehicle", "lat": 21.06, "lon": 105.82, "altitude_m": 10, "heading": 45, "speed_ms": 9 },
+    { "name": "Drone-10", "type": "aircraft", "lat": 21.04, "lon": 105.86, "altitude_m": 400, "heading": 0, "speed_ms": 15, "callsign": "UAV-10", "battery_pct": 82 }
+  ]
+}
