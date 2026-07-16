@@ -77,6 +77,34 @@ Full webhook contract (payload schema, HMAC signing details, source
 adapters for `sondehub`/`adsb` feeds, the `/chaser` device endpoint, and
 `/history` trail queries): **[docs/webhook-contract.md](docs/webhook-contract.md)**.
 
+## Simulate data (local testing)
+
+Node scripts under `scripts/` feed a running backend so the HUD populates
+without a live feed. All honor `WEBHOOK_SECRET` (must match your `.env`):
+
+```bash
+# Real RS41 radiosonde flights — replays all fixtures/*_sonde.log at once
+WEBHOOK_SECRET=xxx node scripts/replay-sondes.mjs
+
+# Synthetic moving fleet (balloon/aircraft/vehicle) + optional chasers
+WEBHOOK_SECRET=xxx COUNT=10 CHASERS=3 node scripts/simulate-targets.mjs
+#   or point it at your own data:  SEED=./scripts/fixtures/targets.sample.json
+
+# A recovery chaser that drives toward a live target until it enters the ring
+WEBHOOK_SECRET=xxx TARGET=Y0342819 node scripts/chase-pursuit.mjs
+```
+
+## Chaser mode & multiple chasers
+
+A chaser (recovery vehicle) reports its GPS to the open `POST /chaser`
+endpoint. Any device can become one by opening the HUD with
+`?chase=<name>` — it uplinks its browser geolocation as chaser `<name>`
+(needs HTTPS or localhost) and shows a GPS/UPLINK status chip. A whole team
+can report at once; each viewer picks **their own** chaser (the topbar
+**My Chaser** dropdown, `?me=<name>`, or auto when only one exists), which
+drives the 1 km recovery ring + proximity warnings. Clicking or picking a
+chaser pans to it; in chase mode the follow-cam then tracks it live.
+
 ## Build
 
 ```bash
