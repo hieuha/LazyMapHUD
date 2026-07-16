@@ -245,6 +245,13 @@ body {
    (set by applyTint, 0..1) scales it — heavier over bright basemaps, light over dark ones. */
 #map-tint { position:absolute; inset:0; z-index:2; pointer-events:none; mix-blend-mode:multiply;
   background:radial-gradient(130% 105% at 50% 45%, rgba(3,9,14,0.55) 0%, rgba(1,4,8,0.82) 100%); }
+/* Cyan HUD wash over the satellite tiles so the map matches the phosphor
+   aesthetic. `screen` lifts everything toward cyan (phosphor glow); paired
+   with a muted, slightly hue-shifted tile pane below. */
+#map-cyan { position:absolute; inset:0; z-index:2; pointer-events:none; mix-blend-mode:screen;
+  background:radial-gradient(130% 110% at 50% 45%, rgba(23,120,150,0.20) 0%, rgba(10,60,84,0.30) 100%); }
+/* Mute the raw imagery so the cyan wash reads (desaturate + darken + nudge hue toward teal). */
+#leaflet .leaflet-tile-pane { filter:saturate(0.55) brightness(0.82) contrast(1.05) hue-rotate(-8deg); }
 #hud { position:absolute; inset:0; z-index:3; pointer-events:none; display:block; }
 
 .map-overlay { position:absolute; z-index:6; pointer-events:none; font-family:var(--mono); font-size:9px;
