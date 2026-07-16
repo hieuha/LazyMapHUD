@@ -9,6 +9,13 @@ export interface HudState {
   units: UnitSystem; // "metric" | "imperial" (default metric — user in Vietnam)
   tz: Timezone; // default UTC (SondeHub is UTC)
   selectedId: string;
+  /** id of the chaser this viewer treats as their own — drives the 1km ring +
+   * proximity warnings. '' = auto (adopt the only chaser when exactly one exists). */
+  myChaserId: string;
+  /** true when the HUD was opened with ?chase=<name> (this device is a chaser). */
+  isChaseMode: boolean;
+  /** chaser id the follow-cam is bound to (takes precedence over selectedId); '' = none. */
+  followChaserId: string;
 
   // follow-cam (TRACK LOCK)
   trackLock: boolean; // follow-cam ON by default (auto-pan, no click needed)
@@ -25,6 +32,9 @@ export const store: HudState = {
   units: 'metric',
   tz: 'utc',
   selectedId: '',
+  myChaserId: '',
+  isChaseMode: false,
+  followChaserId: '',
   trackLock: true,
   lastInteract: 0,
   camLL: null,

@@ -4,6 +4,8 @@
 // lives on a different origin — dev proxy handles same-origin locally).
 export interface ChaserFix {
   id: string;
+  /** display name for this chaser (defaults to id server-side when omitted). */
+  name?: string;
   lat: number;
   lon: number;
   altitude_m?: number;

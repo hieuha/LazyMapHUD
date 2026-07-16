@@ -17,12 +17,16 @@ export const RANGE_M = 1000; // 1 km recovery ring
 
 export interface Chaser {
   id: string;
+  /** display name (from the wire entity's `name`); falls back to id. */
+  name: string;
   lat: number;
   lon: number;
   hdg: number;
   cur: { lat: number; lon: number } | null;
   /** true once a live (webhook-fed) `type:'chaser'` entity has driven this chaser. */
   fromLive: boolean;
+  /** this chaser's own recent path (each chaser tracks independently). */
+  trail: [number, number][];
 }
 
 export class EntityEngine {
@@ -30,20 +34,13 @@ export class EntityEngine {
   // AltitudeLadder all hold this same array reference from construction, so
   // dynamic live add/remove must mutate it rather than replace it.
   readonly entities: HudEntity[] = [];
-  readonly chaser: Chaser;
-  chaserTrail: [number, number][] = [];
+  // Live chasers keyed by id — a whole team of chaser devices can report at
+  // once; each viewer picks their own (store.myChaserId) for ring/proximity.
+  readonly chasers = new Map<string, Chaser>();
   private readonly liveRoster: LiveRoster;
 
   constructor() {
-    this.chaser = {
-      id: '',
-      lat: 0,
-      lon: 0,
-      hdg: 0,
-      cur: null,
-      fromLive: false,
-    };
-    this.liveRoster = new LiveRoster(this.entities, this.chaser, this.chaserTrail);
+    this.liveRoster = new LiveRoster(this.entities, this.chasers);
   }
 
   // ---- live wire entities (WebSocketSource) — delegated to LiveRoster ----

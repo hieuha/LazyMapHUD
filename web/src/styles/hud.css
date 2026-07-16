@@ -102,18 +102,18 @@ body {
 
 /* MAP dropdown button + dark tactical popover radio list */
 .mapdd { position:relative; }
-#map-dd-btn { display:flex; align-items:center; gap:6px; height:100%; border:1px solid var(--line-2); background:none;
+#map-dd-btn, #me-dd-btn { display:flex; align-items:center; gap:6px; height:100%; border:1px solid var(--line-2); background:none;
   font-family:var(--mono); font-size:9px; letter-spacing:0.1em; color:var(--txt-1); text-transform:uppercase; cursor:pointer; padding:3px 8px; }
-#map-dd-btn:hover { color:var(--cyan); }
-#map-dd-btn .seg-lab { border:none; padding:0 2px 0 0; }
-#map-dd-btn .cur { color:var(--cyan); }
-#map-dd-btn .car { color:var(--txt-2); font-size:8px; }
-#map-dd-pop { position:absolute; top:calc(100% + 6px); right:0; z-index:40; display:none; min-width:172px;
+#map-dd-btn:hover, #me-dd-btn:hover { color:var(--cyan); }
+#map-dd-btn .seg-lab, #me-dd-btn .seg-lab { border:none; padding:0 2px 0 0; }
+#map-dd-btn .cur, #me-dd-btn .cur { color:var(--cyan); max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#map-dd-btn .car, #me-dd-btn .car { color:var(--txt-2); font-size:8px; }
+#map-dd-pop, #me-dd-pop { position:absolute; top:calc(100% + 6px); right:0; z-index:40; display:none; min-width:172px;
   background:rgba(5,11,16,0.97); border:1px solid var(--line-2); box-shadow:0 12px 34px rgba(0,0,0,0.6);
   padding:5px; }
-#map-dd-pop.open { display:block; }
-#map-dd-pop::before { content:""; position:absolute; top:-1px; left:-1px; width:10px; height:10px; border-top:1px solid var(--cyan); border-left:1px solid var(--cyan); }
-#map-dd-pop::after  { content:""; position:absolute; bottom:-1px; right:-1px; width:10px; height:10px; border-bottom:1px solid var(--cyan); border-right:1px solid var(--cyan); }
+#map-dd-pop.open, #me-dd-pop.open { display:block; }
+#map-dd-pop::before, #me-dd-pop::before { content:""; position:absolute; top:-1px; left:-1px; width:10px; height:10px; border-top:1px solid var(--cyan); border-left:1px solid var(--cyan); }
+#map-dd-pop::after, #me-dd-pop::after { content:""; position:absolute; bottom:-1px; right:-1px; width:10px; height:10px; border-bottom:1px solid var(--cyan); border-right:1px solid var(--cyan); }
 .map-opt { display:flex; align-items:center; gap:9px; padding:5px 8px; cursor:pointer;
   font-family:var(--mono); font-size:10px; letter-spacing:0.06em; color:var(--txt-1); text-transform:none; }
 .map-opt:hover { background:rgba(55,224,255,0.08); }
@@ -127,6 +127,8 @@ body {
 .map-opt .tagx { margin-left:auto; font-size:7px; letter-spacing:0.1em; color:var(--txt-3); border:1px solid var(--line); padding:0 3px; text-transform:uppercase; }
 
 .topbar-spacer { flex:1; }
+.hud-clock { font-family:var(--mono); font-size:14px; letter-spacing:0.06em; color:var(--cyan); font-variant-numeric:tabular-nums;
+  padding:0 12px; border-left:1px solid var(--line); align-self:stretch; display:flex; align-items:center; }
 .stat { display:flex; flex-direction:column; align-items:flex-end; line-height:1.15; padding:0 11px; border-left:1px solid var(--line); }
 .stat .k { font-size:8.5px; letter-spacing:0.16em; color:var(--txt-2); text-transform:uppercase; }
 .stat .v { font-family:var(--mono); font-size:14px; color:var(--txt-0); font-variant-numeric:tabular-nums; }
@@ -150,19 +152,24 @@ body {
 
 /* ---------------------------- ROSTER (multi-target) ---------------------------- */
 #roster { overflow-y:auto; flex:1; min-height:0; }
-.roster-colhead { display:grid; grid-template-columns:14px 74px 1fr 48px 20px; gap:6px; padding:6px 12px;
+.roster-colhead { display:grid; grid-template-columns:74px 1fr 48px 20px; gap:6px; padding:6px 12px;
   position:sticky; top:0; background:rgba(6,12,18,0.95); border-bottom:1px solid var(--line); z-index:2;
   font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:var(--txt-3); text-transform:uppercase; }
-.roster-colhead span:nth-child(4){ text-align:right; } .roster-colhead span:nth-child(5){ text-align:center; }
-.row { display:grid; grid-template-columns:14px 74px 1fr 48px 20px; gap:6px; align-items:center;
+.roster-colhead span:nth-child(3){ text-align:right; } .roster-colhead span:nth-child(4){ text-align:center; }
+.row { display:grid; grid-template-columns:74px 1fr 48px 20px; gap:6px; align-items:center;
   padding:7px 12px; cursor:pointer; border-bottom:1px solid rgba(55,224,255,0.05); transition:background .12s; position:relative; }
 .row:hover { background:rgba(55,224,255,0.05); }
 .row.sel { background:rgba(55,224,255,0.1); }
 .row.sel::before { content:""; position:absolute; left:0; top:0; bottom:0; width:2px; background:var(--cyan); box-shadow:var(--glow-cyan); }
 .row.alert.sel::before { background:var(--red); box-shadow:var(--glow-red); }
+/* Target inside a chaser recovery ring — flagged red in the roster so the
+   operator sees WHICH object triggered the proximity warning, not just the
+   full-screen flash. */
+.row.warn { background:rgba(255,59,48,0.12); }
+.row.warn::before { content:""; position:absolute; left:0; top:0; bottom:0; width:2px; background:var(--red); box-shadow:var(--glow-red); }
+.row.warn .rid, .row.warn .ralt { color:var(--red); }
 .row .tico { font-family:var(--mono); font-size:12px; text-align:center; line-height:1; }
 .row .rid { font-family:var(--mono); font-size:10.5px; color:var(--txt-0); letter-spacing:0.02em; display:flex; align-items:center; gap:4px; }
-.row .rid .livedot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 5px var(--green); flex:0 0 auto; }
 .row .rid .simb { font-size:7px; letter-spacing:0.08em; color:var(--txt-2); border:1px solid var(--line); padding:0 3px; }
 .row .rtype { font-size:9px; color:var(--txt-2); text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .row .ralt { font-family:var(--mono); font-size:10.5px; color:var(--txt-1); text-align:right; font-variant-numeric:tabular-nums; }
@@ -170,6 +177,25 @@ body {
 .row .rstat { display:flex; justify-content:center; }
 .dot { width:7px; height:7px; border-radius:50%; }
 .dot.ok { background:var(--cyan); box-shadow:0 0 5px var(--cyan); }
+.dot.live { background:var(--green); box-shadow:0 0 5px var(--green); }
+
+/* Chase-mode status chip — sits atop the roster panel, styled like a HUD
+   panel header (cyan accent + tag), with two indicator lights: GPS fix and
+   server UPLINK. Only shown when the HUD is opened with ?chase=<name>. */
+#chase-chip { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line-2);
+  background:rgba(55,224,255,0.03); }
+#chase-chip[hidden] { display:none; }
+#chase-chip .cc-accent { width:3px; height:12px; background:var(--cyan); box-shadow:var(--glow-cyan); border-radius:1px; flex:none; }
+#chase-chip .cc-tag { font-family:var(--mono); font-size:10px; letter-spacing:0.2em; color:var(--cyan); text-transform:uppercase; }
+#chase-chip .cc-name { font-family:var(--mono); font-size:10px; letter-spacing:0.08em; color:var(--txt-1);
+  text-transform:uppercase; max-width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#chase-chip .cc-inds { margin-left:auto; display:flex; align-items:center; gap:9px; }
+#chase-chip .cc-ind { display:flex; align-items:center; gap:5px; font-family:var(--mono); font-size:8px;
+  letter-spacing:0.1em; color:var(--txt-2); text-transform:uppercase; white-space:nowrap; }
+#chase-chip .cc-dot { width:7px; height:7px; border-radius:50%; background:var(--txt-3); flex:none; }
+#chase-chip .cc-dot.on { background:var(--green); box-shadow:0 0 5px var(--green); }
+#chase-chip .cc-dot.acq { background:var(--amber); box-shadow:0 0 5px var(--amber); animation:blinkdot 1s steps(1) infinite; }
+#chase-chip .cc-dot.off { background:var(--red); box-shadow:0 0 5px var(--red); }
 .dot.warn { background:var(--amber); box-shadow:0 0 5px var(--amber); }
 .dot.crit { background:var(--red); box-shadow:0 0 5px var(--red); animation:blinkdot 1s steps(1) infinite; }
 @keyframes blinkdot { 0%,60%{opacity:1;} 61%,100%{opacity:0.25;} }
@@ -223,11 +249,14 @@ body {
 
 .map-overlay { position:absolute; z-index:6; pointer-events:none; font-family:var(--mono); font-size:9px;
   letter-spacing:0.18em; color:var(--cyan); background:rgba(4,7,10,0.5); padding:3px 7px; border:1px solid var(--line-2); }
-#ov-dist { top:16px; right:52px; display:flex; gap:8px; align-items:center; }
-#ov-dist .dl b { color:var(--cyan); }
-#ov-dist .dv { color:var(--green); font-weight:600; }
+#ov-dist { top:16px; right:52px; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+#ov-dist b { color:var(--cyan); }
+#ov-dist b#dist-from { color:#7dff8f; } /* chaser = green (source) */
+#ov-dist b#dist-val { color:var(--green); }
+#ov-dist .ov-dsep { color:var(--txt-3); }
+#ov-dist .ov-dbrg { color:var(--txt-2); }
 #ov-dist.warn { color:#ffd9d6; border-color:var(--red); background:rgba(255,59,48,0.14); box-shadow:0 0 12px rgba(255,59,48,0.5); }
-#ov-dist.warn .dl b, #ov-dist.warn .dv { color:#fff; }
+#ov-dist.warn b, #ov-dist.warn .ov-dbrg { color:#fff; }
 /* bottom-right: cursor lat/lon + grid-range/zoom, stacked above the Leaflet attribution.
    Each line forced to `display:block` (not just a flex column) so the two
    inline <span> children always wrap onto separate lines regardless of
@@ -259,15 +288,21 @@ body {
 
 @media (max-width:767px) {
   body { font-size:12px; }
-  #main { grid-template-columns:1fr; grid-template-rows:minmax(250px, 46vh) auto auto; overflow-y:auto; }
-  #left { border-right:none; border-bottom:1px solid var(--line-2); order:2; }
-  #center { order:1; border-bottom:1px solid var(--line-2); min-height:260px; }
+  /* Flex column (not grid) on mobile: siblings stack sequentially and cannot
+     overlap. The prior grid + `order` + `grid-column:1/-1` on #mobile-alt let
+     the altitude profile auto-place into #left's row and paint over the detail. */
+  /* overflow-y:auto alone makes overflow-x compute to `auto` too (spawning a
+     stray horizontal scrollbar from sub-pixel/canvas width); pin it hidden so
+     the layout always fits the viewport width. */
+  #main { display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
+  #left { border-right:none; border-bottom:1px solid var(--line-2); order:2; flex:0 0 auto; }
+  #center { order:1; border-bottom:1px solid var(--line-2); min-height:max(250px, 46vh); flex:0 0 auto; }
   #right { display:none; }
   #roster { display:flex; flex-direction:row; overflow-x:auto; overflow-y:hidden; flex:none; max-height:96px; }
   .roster-colhead { display:none; }
   .row { grid-template-columns:none; display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-width:132px; border-bottom:none; border-right:1px solid var(--line); padding:8px 10px; }
   .row .ralt { text-align:left; } .row .rstat { justify-content:flex-start; }
-  #mobile-alt { display:block; order:3; grid-column:1 / -1; border-top:1px solid var(--line-2); background:linear-gradient(180deg, rgba(6,12,18,0.85), rgba(4,8,11,0.85)); }
+  #mobile-alt { display:block; order:3; flex:0 0 auto; border-top:1px solid var(--line-2); background:linear-gradient(180deg, rgba(6,12,18,0.85), rgba(4,8,11,0.85)); }
   #mobile-alt canvas { display:block; width:100%; height:110px; }
 }
 /* Compact mobile topbar: wrap into tidy rows, drop the flex spacer's big gap,

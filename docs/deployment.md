@@ -45,8 +45,7 @@ certificate issuance progress if it's slow.
 
 The `Dockerfile` is a multi-stage build:
 1. Install all pnpm workspace deps.
-2. Build the web static bundle (`web/dist`, both `index.html` and
-   `chase.html`) with Vite.
+2. Build the web static bundle (`web/dist`, a single `index.html`) with Vite.
 3. Runtime stage: production-only deps for `server` (+ its `shared`
    workspace dependency), the server source (run via `tsx`, matching this
    repo's TS-source-first convention — no separate compiled-JS step), and
@@ -91,8 +90,8 @@ exposing this deployment on the open internet, pick one:
        reverse_proxy app:3000
    }
    ```
-2. **Device token.** Add a shared-secret query param or header the chase.html
-   page includes on every POST, checked in `chaser-route.ts` before the rate
+2. **Device token.** Add a shared-secret query param or header that chase mode
+   includes on every POST, checked in `chaser-route.ts` before the rate
    limiter — the simplest code change if VPN isn't an option; not yet
    implemented in this codebase (tracked as a pre-public-launch follow-up,
    not blocking the initial trusted-network/staging deploy this phase ships).

@@ -16,10 +16,14 @@ import { Roster } from './panels/roster.js';
 import { DetailReadout } from './panels/detail-readout.js';
 import { AltitudeLadder } from './panels/altitude-ladder.js';
 import { Proximity } from './chaser/proximity.js';
+import { resolveMyChaser, initMyChaserId } from './chaser/my-chaser.js';
+import { MyChaserPicker } from './controls/my-chaser-picker.js';
+import { wireChaseMode } from './controls/chase-mode.js';
 import { ConnectionStatus } from './ui/connection-status.js';
 
 import { wireUnitsToggle } from './controls/units.js';
 import { wireTimezoneToggle } from './controls/timezone.js';
+import { wireHeaderClock } from './controls/header-clock.js';
 import { wireZoomReadout } from './controls/zoom-readout.js';
 import { wireTrackControls, setLockUI } from './controls/track-lock.js';
 import { wireTrailHydration } from './controls/trail-hydration.js';
@@ -64,9 +68,18 @@ function boot(): void {
     proximity.warnIds,
     () => mapCtrl.map.getZoom(),
   );
-  const roster = new Roster(engine.entities, selectAndTrack);
+  const roster = new Roster(engine.entities, selectAndTrack, proximity.warnIds);
   const ladder = new AltitudeLadder('#ladder', engine.entities, false);
   const ladderM = new AltitudeLadder('#ladder-m', engine.entities, true);
+
+  // Seed the viewer's own chaser from ?me=/localStorage, then keep the picker
+  // in sync as chasers come and go.
+  initMyChaserId();
+  wireChaseMode(); // ?chase=<name> turns this HUD into that chaser (GPS uplink)
+  const mePicker = new MyChaserPicker(engine, (id) => {
+    const c = engine.chasers.get(id);
+    if (c) mapCtrl.panToChaser(c); // selecting a chaser pans + (chase mode) tracks it
+  });
 
   const { handlers: sourceHandlers } = createSourceHandlers(engine, roster, detail, selectAndTrack);
 
@@ -76,7 +89,11 @@ function boot(): void {
     ladder.draw();
     ladderM.draw();
   });
-  wireTimezoneToggle(() => detail.update());
+  const renderClock = wireHeaderClock();
+  wireTimezoneToggle(() => {
+    detail.update();
+    renderClock(); // reflect UTC/ICT switch immediately
+  });
   wireZoomReadout(mapCtrl.map);
   wireTrackControls();
   initBasemapMenu(basemaps);
@@ -112,7 +129,7 @@ function boot(): void {
     const dt = Math.min(Math.max(now - last, 0), 60);
     last = now;
     liveSource.tick(dt);
-    mapCtrl.syncRing(engine.chaser);
+    mapCtrl.syncRing(resolveMyChaser(engine));
     mapCtrl.followCam(now, dt);
     proximity.update();
     hud.draw(now);
@@ -122,6 +139,7 @@ function boot(): void {
     if (acc > 120) {
       acc = 0;
       roster.refresh();
+      mePicker.refresh();
       detail.update();
     }
     requestAnimationFrame(loop);

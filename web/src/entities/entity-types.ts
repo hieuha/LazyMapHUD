@@ -35,6 +35,8 @@ export type EntitySourceKind = 'live';
 
 export interface HudEntity {
   id: string;
+  /** human-readable display name (from the wire `Entity.name`). */
+  name: string;
   kind: EntityKind;
   /** live webhook-fed data (the only source). */
   source: EntitySourceKind;

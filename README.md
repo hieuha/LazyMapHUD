@@ -14,8 +14,9 @@ Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 - **Server:** Node ≥20, Fastify, `ws` (WebSocket). In-memory store for the
   live entity snapshot + trail history (no database — state is lost on
   restart; deploy stays light with no native addon or data volume).
-- **Web:** Vanilla TypeScript + Vite + Leaflet. Two static entry points:
-  `index.html` (the HUD) and `chase.html` (the Chaser-mode device page).
+- **Web:** Vanilla TypeScript + Vite + Leaflet. A single HUD (`index.html`);
+  open it with `?chase=<name>` to turn that device into a chaser (GPS uplink),
+  otherwise it's a pure viewer.
 - **Shared:** a `shared` workspace package — the canonical `Entity`/wire
   protocol contracts (Zod schemas + TS types), used by both server and web.
 - **Monorepo:** pnpm workspaces (`shared/`, `server/`, `web/`).
@@ -27,7 +28,7 @@ Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 ```
 shared/    canonical Entity + wire-protocol contracts (Zod + TS)
 server/    Fastify: webhook/history/chaser routes, WS hub, in-memory store, SondeHub/ADS-B pollers
-web/       Vite app: index.html (HUD) + chase.html (chaser device page)
+web/       Vite app: single HUD (index.html); ?chase=<name> = chaser GPS uplink
 docs/      webhook-contract.md, deployment.md
 concepts/  the approved HTML mockup this HUD was built from (reference only)
 ```
@@ -53,7 +54,7 @@ pnpm dev                # runs server (tsx watch) + web (vite) concurrently
   this keeps the browser same-origin in dev, matching the production
   same-origin topology behind Caddy).
 - API/WS: http://localhost:3000, WebSocket at `ws://localhost:3000/ws`.
-- Chaser device page (dev): http://localhost:5173/chase.html
+- Chaser mode (dev): http://localhost:5173/?chase=Team1 — the HUD also uplinks this device's GPS as chaser "Team1" (needs HTTPS or localhost for geolocation)
 - The map is **empty by default** — no simulated/demo data (plan decision
   D7). Feed it a real entity via `/webhook` (see below) or configure
   `SONDEHUB_SERIALS` to poll a live feed.
@@ -62,7 +63,8 @@ pnpm dev                # runs server (tsx watch) + web (vite) concurrently
 
 ```bash
 SECRET="your-webhook-secret"   # must match WEBHOOK_SECRET in your .env
-BODY='{"id":"balloon-1","type":"balloon","lat":21.0285,"lon":105.8542,"altitude_m":1500,"heading":90,"speed_ms":5,"climb_ms":2,"ts":'"$(date +%s000)"'}'
+# Only name/type/lat/lon/altitude_m are required; heading/speed_ms become meta.
+BODY='{"name":"Balloon 1","type":"balloon","lat":21.0285,"lon":105.8542,"altitude_m":1500,"heading":90,"speed_ms":5}'
 SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')
 
 curl -X POST http://localhost:3000/webhook \
@@ -87,8 +89,7 @@ pnpm build           # builds web (Vite) + typechecks server (see note below)
 than emitting compiled JS — this workspace runs TypeScript directly via
 `tsx` in both dev and production (`pnpm --filter server start`), so there's
 no separate compile-to-JS step. `web`'s build (`vite build`) is the one
-that actually produces static output, to `web/dist` (both `index.html` and
-`chase.html` as separate entry points).
+that actually produces static output, to `web/dist`.
 
 ## Environment variables
 

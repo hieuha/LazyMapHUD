@@ -1,4 +1,4 @@
-// Leaflet map init + follow-cam (TRACK LOCK) + click-to-track flyTo(z18) + the
+// Leaflet map init + follow-cam (TRACK LOCK) + click-to-track flyTo(z15) + the
 // 1 km chaser range ring. The follow-cam ports the exact `isProgrammaticMove`
 // guard + `animate:false` setView from the mockup (the fixed self-suspend bug):
 // programmatic camera moves flag themselves so genuine user gestures alone suspend
@@ -28,17 +28,20 @@ export class MapController {
       minZoom: 3,
       maxZoom: 19,
       zoomControl: false,
-      attributionControl: true,
+      // Attribution hidden to keep the tactical map uncluttered (operator
+      // request). Note: public tile providers' terms generally require
+      // attribution — restore this (or credit them elsewhere) before any
+      // public-facing deployment.
+      attributionControl: false,
       zoomAnimation: true,
       fadeAnimation: true,
     });
     L.control.zoom({ position: 'bottomleft' }).addTo(this.map);
 
     // Not added to the map yet — no chaser has been fed real data at boot
-    // (empty-start: no placeholder ring visible until the webhook-fed chaser
-    // or DEMO's scripted chaser actually arrives). `syncRing` adds it lazily.
-    const c = engine.chaser;
-    this.rangeRing = L.circle([c.lat, c.lon], {
+    // (empty-start: no placeholder ring visible until the viewer's chaser
+    // actually arrives). `syncRing` adds/removes it lazily.
+    this.rangeRing = L.circle(DEFAULT_CENTER, {
       radius: RANGE_M,
       color: CHASER_COLOR,
       weight: 1,
@@ -61,11 +64,15 @@ export class MapController {
     );
   }
 
-  /** Keep the Leaflet ring layer synced with the chaser; lazily add it to the
-   * map on the chaser's first real position so an empty/disconnected boot
-   * never shows a placeholder ring. */
-  syncRing(chaser: Chaser): void {
-    if (!chaser.cur) return;
+  /** Keep the Leaflet ring layer synced with the viewer's own chaser; lazily
+   * add it on that chaser's first real position, and remove it when there is
+   * no resolved own-chaser (none chosen among several, or it dropped out) so a
+   * stale ring never lingers around a teammate's or an old position. */
+  syncRing(chaser: Chaser | undefined): void {
+    if (!chaser || !chaser.cur) {
+      if (this.map.hasLayer(this.rangeRing)) this.map.removeLayer(this.rangeRing);
+      return;
+    }
     if (!this.map.hasLayer(this.rangeRing)) this.rangeRing.addTo(this.map);
     this.rangeRing.setLatLng([chaser.lat, chaser.lon]);
   }
@@ -77,6 +84,7 @@ export class MapController {
 
   // ---- click-to-track: fly-to z18, then keep following the target ----
   selectAndTrack(id: string): void {
+    store.followChaserId = ''; // selecting a roster target stops chaser-follow
     store.trackLock = true;
     store.lastInteract = 0; // allow immediate follow
     store.camLL = null; // re-sync tracking camera after the fly-to
@@ -84,7 +92,7 @@ export class MapController {
     if (e && e.cur) {
       store.flyingToTarget = true;
       store.isProgrammaticMove = true;
-      this.map.flyTo([e.cur.lat, e.cur.lon], 18, { animate: true, duration: 1.1 });
+      this.map.flyTo([e.cur.lat, e.cur.lon], 15, { animate: true, duration: 1.1 });
       store.isProgrammaticMove = false;
       // safety net: if moveend is ever missed, resume follow shortly after the fly.
       clearTimeout(this.flyTimer);
@@ -105,10 +113,9 @@ export class MapController {
       store.camLL = null;
       return;
     } // suspended only by REAL user input
-    const e = this.getSelected();
-    if (!e || !e.cur) return;
+    const target = this.followTarget();
+    if (!target) return;
 
-    const target = e.cur;
     const p = this.pt(target.lat, target.lon);
     const size = this.map.getSize();
     const offX = p.x - size.x / 2;
@@ -127,27 +134,87 @@ export class MapController {
     store.isProgrammaticMove = false; // events fire synchronously here
   }
 
-  private pickEntity(clientX: number, clientY: number): boolean {
+  /** The point the follow-cam should stay centered on: a bound chaser (chase
+   * mode) takes precedence over the selected roster target. */
+  private followTarget(): { lat: number; lon: number } | null {
+    if (store.followChaserId) {
+      return this.engine.chasers.get(store.followChaserId)?.cur ?? null;
+    }
+    return this.getSelected()?.cur ?? null;
+  }
+
+  /** Click-to-pan onto a chaser. In chase mode it also binds the follow-cam to
+   * that chaser (continuous tracking as it moves); in viewer mode it's a one-off
+   * pan that holds there. */
+  panToChaser(c: Chaser): void {
+    if (!c.cur) return;
+    const zoom = Math.max(this.map.getZoom(), 15);
+    if (store.isChaseMode) {
+      store.followChaserId = c.id; // follow-cam now tracks this chaser
+      store.selectedId = ''; // not tracking a roster target
+      store.trackLock = true;
+      store.lastInteract = 0; // allow immediate follow
+      store.camLL = null;
+      store.flyingToTarget = true;
+      store.isProgrammaticMove = true;
+      this.map.flyTo([c.cur.lat, c.cur.lon], zoom, { animate: true, duration: 1.0 });
+      store.isProgrammaticMove = false;
+      clearTimeout(this.flyTimer);
+      this.flyTimer = window.setTimeout(() => {
+        store.flyingToTarget = false;
+        store.lastInteract = 0;
+        store.camLL = null;
+      }, 1300);
+    } else {
+      // Viewer mode: pan once and hold (don't continuously chase a chaser).
+      this.map.flyTo([c.cur.lat, c.cur.lon], zoom, { animate: true, duration: 1.0 });
+      store.lastInteract = performance.now();
+      store.camLL = null;
+    }
+  }
+
+  // Click hit-test over both targets and chasers (whichever marker is nearest
+  // the click within ~40px): a target is selected + tracked; a chaser just
+  // pans the camera to it.
+  private pickAt(clientX: number, clientY: number): boolean {
     const hud = document.getElementById('hud');
     if (!hud) return false;
     const r = hud.getBoundingClientRect();
     const px = clientX - r.left;
     const py = clientY - r.top;
-    let best: HudEntity | null = null;
-    let bd = 1e9;
+    const HIT_PX2 = 1600; // (40px)^2
+
+    let bestEntity: HudEntity | null = null;
+    let bdEntity = HIT_PX2;
     this.engine.entities.forEach((e) => {
       if (!e.cur) return;
       const p = this.pt(e.cur.lat, e.cur.lon);
-      const dx = p.x - px;
-      const dy = p.y - py;
-      const d = dx * dx + dy * dy;
-      if (d < bd) {
-        bd = d;
-        best = e;
+      const d = (p.x - px) ** 2 + (p.y - py) ** 2;
+      if (d < bdEntity) {
+        bdEntity = d;
+        bestEntity = e;
       }
     });
-    if (best && bd < 1600) {
-      this.onSelectAndTrack((best as HudEntity).id);
+
+    let bestChaser: Chaser | null = null;
+    let bdChaser = HIT_PX2;
+    for (const c of this.engine.chasers.values()) {
+      if (!c.cur) continue;
+      const p = this.pt(c.cur.lat, c.cur.lon);
+      const d = (p.x - px) ** 2 + (p.y - py) ** 2;
+      if (d < bdChaser) {
+        bdChaser = d;
+        bestChaser = c;
+      }
+    }
+
+    // Nearest wins; ties favor the chaser (its label is what the user clicks).
+    if (bestChaser && bdChaser <= bdEntity) {
+      this.panToChaser(bestChaser);
+      return true;
+    }
+    if (bestEntity) {
+      this.onSelectAndTrack((bestEntity as HudEntity).id);
       return true;
     }
     return false;
@@ -155,7 +222,7 @@ export class MapController {
 
   private wireInteraction(): void {
     this.map.on('click', (ev: L.LeafletMouseEvent) => {
-      this.pickEntity(ev.originalEvent.clientX, ev.originalEvent.clientY);
+      this.pickAt(ev.originalEvent.clientX, ev.originalEvent.clientY);
     });
     // Suspend follow ONLY on genuine user gestures (guarded by isProgrammaticMove).
     const userSuspend = (): void => {

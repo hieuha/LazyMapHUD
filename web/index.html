@@ -18,6 +18,12 @@
           <span class="u" id="feed-label">RECONNECTING</span>
         </div>
         <div id="tracking-badge" role="button" tabindex="0" aria-pressed="true" title="Toggle TRACK LOCK"><span class="lock">◎</span><span>TRACKING&nbsp;</span><b id="track-id">—</b></div>
+        <div class="mapdd opt" id="me-dd" hidden>
+          <button id="me-dd-btn" aria-haspopup="true" aria-expanded="false">
+            <span class="seg-lab">My&nbsp;Chaser</span><span class="cur" id="me-dd-cur">— auto —</span><span class="car">▾</span>
+          </button>
+          <div id="me-dd-pop" role="listbox"><!-- chaser options injected --></div>
+        </div>
         <div class="seg opt" id="seg-units">
           <span class="seg-lab">Units</span>
           <button data-units="metric" class="on">Metric</button>
@@ -35,8 +41,7 @@
           <div id="map-dd-pop" role="listbox"><!-- radio options injected --></div>
         </div>
         <div class="topbar-spacer"></div>
-        <div class="stat opt"><span class="k">Frame</span><span class="v" id="stat-frame">—</span></div>
-        <div class="stat"><span class="k">Feed&nbsp;T&nbsp;(UTC)</span><span class="v" id="stat-clock">--:--:--</span></div>
+        <div class="hud-clock mono" id="hud-clock" title="Current time — UTC or ICT per the Time toggle">--:--:--</div>
       </header>
 
       <!-- ============ MAIN ============ -->
@@ -44,11 +49,12 @@
         <!-- LEFT: roster + hero + detail -->
         <section id="left" class="panel">
           <span class="br tl"></span><span class="br tr"></span><span class="br bl"></span><span class="br br2"></span>
+          <div id="chase-chip" hidden></div>
           <div class="panel-head">
             <span class="accent"></span><span class="tag">Entity Roster</span>
             <span class="count mono" id="roster-count">00</span>
           </div>
-          <div class="roster-colhead"><span></span><span>ID</span><span>Type</span><span>Alt</span><span>St</span></div>
+          <div class="roster-colhead"><span>ID</span><span>Type</span><span>Alt</span><span>St</span></div>
           <div id="roster"></div>
 
           <div id="hero" class="empty">
@@ -71,8 +77,6 @@
               <div class="dcell"><div class="dk">Climb</div><div class="dv" id="d-climb">—</div></div>
               <div class="dcell"><div class="dk">Gnd Spd</div><div class="dv" id="d-spd">—</div></div>
               <div class="dcell"><div class="dk">Heading</div><div class="dv" id="d-hdg">—</div></div>
-              <div class="dcell"><div class="dk">Sats</div><div class="dv" id="d-sats">—</div></div>
-              <div class="dcell"><div class="dk">Battery</div><div class="dv" id="d-batt">—</div></div>
               <div class="dcell"><div class="dk">Grid Ref</div><div class="dv" id="d-grid">—</div></div>
             </div>
           </div>
@@ -97,7 +101,9 @@
             <div class="map-bracket mb-tl"></div><div class="map-bracket mb-tr"></div>
             <div class="map-bracket mb-bl"></div><div class="map-bracket mb-br"></div>
 
-            <div class="map-overlay u mono" id="ov-dist"><span class="dl">CHASER&nbsp;→&nbsp;<b id="dist-id">—</b></span><span class="dv" id="dist-val">— km</span></div>
+            <div class="map-overlay u mono" id="ov-dist" title="Range from your chaser to the selected target">
+              <b id="dist-from">—</b>&nbsp;→&nbsp;<b id="dist-id">—</b><span class="ov-dsep">·</span><b id="dist-val">—</b><span class="ov-dsep">·</span><span class="ov-dbrg">BRG&nbsp;<b id="dist-brg">—</b></span>
+            </div>
             <div class="map-overlay u mono" id="ov-br">
               <span id="ov-cursor">— , —</span>
               <span class="ov-sep">·</span>

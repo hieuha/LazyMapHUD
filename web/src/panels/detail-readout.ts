@@ -11,7 +11,7 @@ import {
   formatSpeed,
   metersToFeet,
 } from 'shared';
-import { $, fmt, clamp, altUnitLabel, fmtTime, gridRef, ALT_MAX_FT, M_TO_FT } from '../hud/format.js';
+import { $, fmt, clamp, altUnitLabel, gridRef, ALT_MAX_FT, M_TO_FT } from '../hud/format.js';
 import { store } from '../state/store.js';
 
 const setText = (sel: string, v: string): void => {
@@ -32,6 +32,16 @@ const setSelectionVisible = (visible: boolean): void => {
  * live entities, so the ascent bar scales against a fixed altitude ceiling. */
 const HERO_CEILING_M = ALT_MAX_FT / M_TO_FT;
 
+/** Meta keys already surfaced in dedicated readouts — excluded from the generic
+ * metadata grid so it doesn't duplicate the heading/speed/climb/freq widgets. */
+const META_KEYS_WITH_DEDICATED_READOUT = new Set([
+  'heading',
+  'speed_ms',
+  'climb_ms',
+  'freq_mhz',
+  'mfr',
+]);
+
 const DETAIL_FIELD_SELECTORS = [
   '#stat-alt',
   '#h-alt-ft',
@@ -43,7 +53,6 @@ const DETAIL_FIELD_SELECTORS = [
   '#d-climb',
   '#d-spd',
   '#d-hdg',
-  '#d-sats',
   '#d-grid',
 ];
 
@@ -66,13 +75,13 @@ export class DetailReadout {
       this.clear();
       return;
     }
-    setText('#track-id', e.id);
+    setText('#track-id', e.name);
     const glyph = $<HTMLElement>('#h-glyph');
     if (glyph) {
       glyph.textContent = e.glyph;
       glyph.style.color = e.color;
     }
-    setText('#h-serial', e.id);
+    setText('#h-serial', e.name);
     const badge = $<HTMLElement>('#h-badge');
     if (badge) {
       badge.textContent = 'LIVE';
@@ -106,20 +115,23 @@ export class DetailReadout {
     DETAIL_FIELD_SELECTORS.forEach((sel) => setText(sel, '—'));
     const fill = $<HTMLElement>('#ascent-fill');
     if (fill) fill.style.width = '0%';
-    const batt = $<HTMLElement>('#d-batt');
-    if (batt) batt.innerHTML = '—';
     this.renderMeta(undefined);
     setSelectionVisible(false);
   }
 
-  /** Render the METADATA block for the selected entity's `meta` (D5); hidden when none.
-   * Built with DOM APIs (not innerHTML) since keys/values are arbitrary caller-supplied
-   * strings — textContent keeps them inert regardless of content. */
+  /** Render the METADATA block for the selected entity's `meta`; hidden when none.
+   * Only the motion keys (heading/speed_ms/climb_ms) and freq/mfr are omitted —
+   * they drive dedicated readouts above. Everything else device-specific (sats,
+   * batt_v, temp_c, snr, …) shows here, so the grid is a flexible catch-all for
+   * whatever a caller attaches. Built with DOM APIs (not innerHTML) since
+   * keys/values are arbitrary caller-supplied strings — textContent keeps them inert. */
   private renderMeta(meta: HudEntity['meta']): void {
     const block = $<HTMLElement>('#meta-block');
     const grid = $<HTMLElement>('#meta-grid');
     if (!block || !grid) return;
-    const entries = meta ? Object.entries(meta) : [];
+    const entries = meta
+      ? Object.entries(meta).filter(([k]) => !META_KEYS_WITH_DEDICATED_READOUT.has(k))
+      : [];
     block.classList.toggle('empty', entries.length === 0);
     grid.replaceChildren(
       ...entries.map(([k, v]) => {
@@ -144,6 +156,12 @@ export class DetailReadout {
   update(): void {
     if (!store.selectedId) {
       this.clear();
+      // When the follow-cam is bound to a chaser (chase mode), surface its name
+      // in the TRACKING badge instead of a bare placeholder.
+      if (store.followChaserId) {
+        const c = this.engine.chasers.get(store.followChaserId);
+        setText('#track-id', c ? c.name : '—');
+      }
       return;
     }
     const e = this.engine.entities.find((x) => x.id === store.selectedId);
@@ -157,8 +175,6 @@ export class DetailReadout {
     const u = store.units;
 
     setText('#stat-alt', formatAltitude(s.alt_m, u));
-    setText('#stat-frame', '#' + s.frame);
-    setText('#stat-clock', fmtTime(s.t, store.tz));
 
     if (u === 'imperial') {
       setText('#h-alt-ft', fmt(Math.round(altFt)));
@@ -184,9 +200,6 @@ export class DetailReadout {
     }
     setText('#d-spd', formatSpeed(s.vh, u));
     setText('#d-hdg', String(Math.round(s.hdg)).padStart(3, '0') + '°');
-    setText('#d-sats', String(s.sats));
-    const batt = $<HTMLElement>('#d-batt');
-    if (batt) batt.innerHTML = (s.batt || 0).toFixed(1) + '<span class="unit">V</span>';
     setText('#d-grid', this.gridRefScreen(s.lat, s.lon));
   }
 }

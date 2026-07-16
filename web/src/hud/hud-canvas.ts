@@ -8,6 +8,7 @@ import { buildHudGrid } from './render-grid.js';
 import { drawEntity } from './render-entities.js';
 import { drawCrosshair } from './render-crosshair.js';
 import { drawChaser } from './render-chaser.js';
+import { resolveMyChaser } from '../chaser/my-chaser.js';
 import type { RenderContext } from './render-context.js';
 
 export class HudCanvas {
@@ -72,10 +73,12 @@ export class HudCanvas {
     const sel = this.engine.entities.find((e) => e.id === store.selectedId);
     if (sel) drawEntity(rc, sel, now);
     drawCrosshair(rc);
-    // Only draw the chaser once it has actually been fed a real position
-    // (live webhook entity) — never a stale default.
-    if (this.engine.chaser.fromLive) {
-      drawChaser(rc, this.engine.chaser, this.engine.chaserTrail, store.units);
+    // Draw every live chaser (whole team); the viewer's own renders highlighted
+    // and last (on top). Only chasers fed a real position are drawn.
+    const mine = resolveMyChaser(this.engine);
+    for (const c of this.engine.chasers.values()) {
+      if (c.fromLive && c !== mine) drawChaser(rc, c, store.units, false);
     }
+    if (mine?.fromLive) drawChaser(rc, mine, store.units, true);
   }
 }
