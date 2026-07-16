@@ -2,7 +2,7 @@
 // webhook/history HTTP routes (Phase 2), and the WebSocket broadcast hub
 // (Phase 3, server->browser only — see plan decision D4).
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
@@ -109,14 +109,26 @@ async function registerOptionalPlugins(): Promise<void> {
   if (SERVE_STATIC) {
     await app.register(fastifyStatic, {
       root: STATIC_ROOT,
-      // /chase.html + assets served alongside index.html at "/"; wildcard
-      // fallthrough disabled below via notFoundHandler for the SPA index.
+      // Cache policy that survives a CDN (Cloudflare) in front:
+      // - Vite's content-hashed assets (/assets/*) are immutable → cache forever.
+      // - index.html has a stable URL but points at the current hashes, so it
+      //   must always revalidate (no-cache) or a stale HTML pins an old bundle.
+      setHeaders: (res, filePath) => {
+        if (filePath.includes(`${sep}assets${sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
     });
     app.setNotFoundHandler((req, reply) => {
       // Only fall back to index.html for GET/HEAD navigations that didn't
       // match an existing static file or API route — keeps 404s honest for
       // API paths (e.g. POST /webhook typos) instead of masking them.
       if ((req.method === 'GET' || req.method === 'HEAD') && !req.url.startsWith('/history') && !req.url.startsWith('/chaser')) {
+        // Never let the SPA entry point get cached by a CDN/browser, else a
+        // new deploy's clients keep loading the previous bundle's hashes.
+        reply.header('Cache-Control', 'no-cache');
         return reply.sendFile('index.html');
       }
       return reply.code(404).send({ error: 'not_found' });
