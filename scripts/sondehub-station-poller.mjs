@@ -17,7 +17,7 @@
 //   LAT,LON         station center       (default 21.0333,105.80 — Hanoi 48820)
 //   RADIUS_M        search radius meters  (default 250000 — covers ascent+drift)
 //   LAST_S          telemetry window sec  (default 7200 — last 2h)
-//   PERIOD_MS       poll interval        (default 15000)
+//   PERIOD_MS       poll interval ms     (default 1000)
 //
 // Note: SondeHub has no "telemetry by station" endpoint — the /sondes area
 // query around the station's coordinates (48820 = Ha Noi, [105.80, 21.0333],
@@ -31,7 +31,7 @@ const LAT = Number(process.env.LAT ?? 21.0333);
 const LON = Number(process.env.LON ?? 105.80);
 const RADIUS_M = Number(process.env.RADIUS_M ?? 250000);
 const LAST_S = Number(process.env.LAST_S ?? 7200);
-const PERIOD_MS = Number(process.env.PERIOD_MS ?? 15000);
+const PERIOD_MS = Number(process.env.PERIOD_MS ?? 1000);
 
 if (!SECRET) {
   console.error('WEBHOOK_SECRET is required (must match the server).');
