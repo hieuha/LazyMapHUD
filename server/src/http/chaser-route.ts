@@ -30,9 +30,12 @@ const RATE_WINDOW_MS = 1000;
 const SWEEP_INTERVAL_MS = 60_000;
 
 // Minimal chaser payload — only id + lat/lon are required; everything else
-// defaults so a bare GPS fix is enough to drive the map.
+// defaults so a bare GPS fix is enough to drive the map. The device still
+// sends flat motion fields (heading/speed_ms); they're folded into `meta` to
+// match the canonical contract (motion is metadata, not a core field).
 const ChaserPayloadSchema = z.object({
   id: z.string().min(1),
+  name: z.string().min(1).optional(),
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
   altitude_m: z.number().optional(),
@@ -42,17 +45,19 @@ const ChaserPayloadSchema = z.object({
 });
 
 function toEntity(payload: z.infer<typeof ChaserPayloadSchema>): unknown {
+  const meta: Record<string, string | number | boolean> = { ...(payload.meta ?? {}) };
+  if (payload.heading !== undefined) meta.heading = payload.heading;
+  if (payload.speed_ms !== undefined) meta.speed_ms = payload.speed_ms;
+
   return {
     id: payload.id,
+    name: payload.name ?? payload.id,
     type: 'chaser',
     lat: payload.lat,
     lon: payload.lon,
     altitude_m: payload.altitude_m ?? 0,
-    heading: payload.heading ?? 0,
-    speed_ms: payload.speed_ms ?? 0,
-    climb_ms: 0,
     ts: Date.now(),
-    meta: payload.meta,
+    ...(Object.keys(meta).length > 0 ? { meta } : {}),
   };
 }
 

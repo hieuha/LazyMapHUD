@@ -32,14 +32,13 @@ describe('POST /webhook', () => {
   it('accepts a validly-signed canonical entity and upserts it', async () => {
     const payload = {
       id: 'chaser-1',
+      name: 'Chase Lead',
       type: 'chaser',
       lat: 21.0285,
       lon: 105.8542,
       altitude_m: 10,
-      heading: 45,
-      speed_ms: 3,
-      climb_ms: 0,
       ts: Date.now(),
+      meta: { heading: 45, speed_ms: 3, climb_ms: 0 },
     };
     const body = JSON.stringify(payload);
 
@@ -59,15 +58,16 @@ describe('POST /webhook', () => {
   });
 
   it('defaults ts to server receive time when omitted', async () => {
+    // Flat payload, no ts: server fills ts, and the non-core `speed_ms` field
+    // is auto-bucketed into meta.
     const payload = {
       id: 'balloon-2',
+      name: 'Balloon Two',
       type: 'balloon',
       lat: 21,
       lon: 105,
       altitude_m: 500,
-      heading: 0,
       speed_ms: 1,
-      climb_ms: 1,
     };
     const body = JSON.stringify(payload);
 
@@ -82,7 +82,9 @@ describe('POST /webhook', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(store.get('balloon-2')?.ts).toBeTypeOf('number');
+    const stored = store.get('balloon-2');
+    expect(stored?.ts).toBeTypeOf('number');
+    expect(stored?.meta).toEqual({ speed_ms: 1 });
   });
 
   it('rejects a missing signature with 401', async () => {
@@ -128,13 +130,11 @@ describe('POST /webhook', () => {
   it('accepts and persists meta, and it round-trips through the store', async () => {
     const payload = {
       id: 'balloon-meta-1',
+      name: 'VN123 sonde',
       type: 'balloon',
       lat: 21.0285,
       lon: 105.8542,
       altitude_m: 500,
-      heading: 10,
-      speed_ms: 2,
-      climb_ms: 1,
       ts: Date.now(),
       meta: { callsign: 'VN123', freq_mhz: 403, battery_v: 3.1 },
     };
@@ -160,16 +160,14 @@ describe('POST /webhook', () => {
 
   it('rejects meta over the key-count cap with 400', async () => {
     const meta: Record<string, number> = {};
-    for (let i = 0; i < 33; i++) meta[`k${i}`] = i;
+    for (let i = 0; i < 65; i++) meta[`k${i}`] = i;
     const payload = {
       id: 'balloon-meta-2',
+      name: 'Balloon Meta Two',
       type: 'balloon',
       lat: 21,
       lon: 105,
       altitude_m: 500,
-      heading: 0,
-      speed_ms: 1,
-      climb_ms: 1,
       ts: Date.now(),
       meta,
     };
@@ -192,15 +190,13 @@ describe('POST /webhook', () => {
   it('rejects meta over the serialized byte-size cap with 400', async () => {
     const payload = {
       id: 'balloon-meta-3',
+      name: 'Balloon Meta Three',
       type: 'balloon',
       lat: 21,
       lon: 105,
       altitude_m: 500,
-      heading: 0,
-      speed_ms: 1,
-      climb_ms: 1,
       ts: Date.now(),
-      meta: { blob: 'x'.repeat(3000) },
+      meta: { blob: 'x'.repeat(5000) },
     };
     const body = JSON.stringify(payload);
 

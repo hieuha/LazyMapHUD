@@ -18,9 +18,6 @@ export interface HistoryPoint {
   lat: number;
   lon: number;
   altitude_m: number;
-  heading: number;
-  speed_ms: number;
-  climb_ms: number;
   ts: number;
 }
 
@@ -36,9 +33,6 @@ function isHistoryPoint(v: unknown): v is HistoryPoint {
     typeof p.lat === 'number' &&
     typeof p.lon === 'number' &&
     typeof p.altitude_m === 'number' &&
-    typeof p.heading === 'number' &&
-    typeof p.speed_ms === 'number' &&
-    typeof p.climb_ms === 'number' &&
     typeof p.ts === 'number'
   );
 }

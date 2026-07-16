@@ -48,17 +48,26 @@ function mapFrame(frame: SondehubFrame, now: number): Entity | undefined {
     return undefined;
   }
 
-  return {
+  // Motion travels as meta now (not required core fields); keep the same
+  // normalization (heading wrapped to 0-360, non-negative ground speed) so
+  // the HUD's heading rotation / readouts stay correct when present.
+  const meta: Record<string, number> = {};
+  if (Number.isFinite(frame.heading)) meta.heading = ((frame.heading % 360) + 360) % 360;
+  if (Number.isFinite(frame.vel_h)) meta.speed_ms = Math.max(0, frame.vel_h);
+  if (Number.isFinite(frame.vel_v)) meta.climb_ms = frame.vel_v;
+  if (Number.isFinite(frame.frame)) meta.frame = frame.frame;
+
+  const entity: Entity = {
     id: `${ID_PREFIX}${frame.serial}`,
+    name: frame.serial,
     type: 'balloon',
     lat: frame.lat,
     lon: frame.lon,
     altitude_m: frame.alt,
-    heading: Number.isFinite(frame.heading) ? ((frame.heading % 360) + 360) % 360 : 0,
-    speed_ms: Number.isFinite(frame.vel_h) ? Math.max(0, frame.vel_h) : 0,
-    climb_ms: Number.isFinite(frame.vel_v) ? frame.vel_v : 0,
     ts,
   };
+  if (Object.keys(meta).length > 0) entity.meta = meta;
+  return entity;
 }
 
 /**

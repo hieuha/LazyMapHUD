@@ -55,15 +55,17 @@ describe('mapSondehubFrames', () => {
     expect(entities).toHaveLength(1);
     const entity = entities[0]!;
     expect(entity.id).toBe('sonde-Y0322352');
+    expect(entity.name).toBe('Y0322352');
     expect(entity.type).toBe('balloon');
 
     const lastFrame = fixture.frames[fixture.frames.length - 1]!;
     expect(entity.lat).toBe(lastFrame.lat);
     expect(entity.lon).toBe(lastFrame.lon);
     expect(entity.altitude_m).toBe(lastFrame.alt);
-    expect(entity.climb_ms).toBe(lastFrame.vv);
-    expect(entity.speed_ms).toBe(lastFrame.vh);
-    expect(entity.heading).toBeCloseTo(lastFrame.hdg, 5);
+    // Motion travels as meta now (not core fields).
+    expect(entity.meta?.climb_ms).toBe(lastFrame.vv);
+    expect(entity.meta?.speed_ms).toBe(lastFrame.vh);
+    expect(entity.meta?.heading).toBeCloseTo(lastFrame.hdg, 5);
     expect(entity.ts).toBe(Date.parse(lastFrame.t));
   });
 
@@ -183,9 +185,9 @@ describe('mapSondehubFrames', () => {
     const entities = mapSondehubFrames(raw, now);
 
     expect(entities).toHaveLength(1);
-    expect(entities[0]!.speed_ms).toBe(0);
-    expect(entities[0]!.climb_ms).toBe(-2);
-    expect(entities[0]!.heading).toBe(40);
+    expect(entities[0]!.meta?.speed_ms).toBe(0);
+    expect(entities[0]!.meta?.climb_ms).toBe(-2);
+    expect(entities[0]!.meta?.heading).toBe(40);
   });
 
   it('ignores frames with an absurd future timestamp', () => {

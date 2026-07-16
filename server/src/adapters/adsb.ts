@@ -60,17 +60,26 @@ export function mapAdsbAircraft(json: unknown, now: number = Date.now()): Entity
 
     const altFt = raw.alt_baro === 'ground' ? 0 : (raw.alt_baro ?? 0);
 
-    entities.push({
+    // Motion travels as meta now (not required core fields), converted to the
+    // canonical metric units. Callsign (`flight`) is the display name when the
+    // aircraft is broadcasting one, otherwise fall back to the ICAO hex.
+    const name = typeof raw.flight === 'string' && raw.flight.trim() ? raw.flight.trim() : raw.hex;
+    const meta: Record<string, number> = {};
+    if (Number.isFinite(raw.track)) meta.heading = ((raw.track as number) % 360 + 360) % 360;
+    if (Number.isFinite(raw.gs)) meta.speed_ms = Math.max(0, (raw.gs as number) * KNOTS_TO_MS);
+    if (Number.isFinite(raw.baro_rate)) meta.climb_ms = (raw.baro_rate as number) * FPM_TO_MS;
+
+    const entity: Entity = {
       id: `${ID_PREFIX}${raw.hex}`,
+      name,
       type: 'aircraft',
       lat: raw.lat,
       lon: raw.lon,
       altitude_m: altFt * FEET_TO_METERS,
-      heading: Number.isFinite(raw.track) ? ((raw.track as number) % 360 + 360) % 360 : 0,
-      speed_ms: Number.isFinite(raw.gs) ? Math.max(0, (raw.gs as number) * KNOTS_TO_MS) : 0,
-      climb_ms: Number.isFinite(raw.baro_rate) ? (raw.baro_rate as number) * FPM_TO_MS : 0,
       ts,
-    });
+    };
+    if (Object.keys(meta).length > 0) entity.meta = meta;
+    entities.push(entity);
   }
 
   return entities;

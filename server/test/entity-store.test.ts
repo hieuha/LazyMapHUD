@@ -6,13 +6,11 @@ import { EntityStore } from '../src/store/entity-store.js';
 function makeEntity(overrides: Partial<Entity> = {}): Entity {
   return {
     id: 'balloon-1',
+    name: 'balloon-1',
     type: 'balloon',
     lat: 21.0285,
     lon: 105.8542,
     altitude_m: 1500,
-    heading: 90,
-    speed_ms: 5,
-    climb_ms: 2,
     ts: Date.now(),
     ...overrides,
   };

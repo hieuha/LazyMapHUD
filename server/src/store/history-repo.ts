@@ -9,13 +9,12 @@
 // only now that bound protects RAM instead of disk.
 import type { Entity } from 'shared/entity';
 
+// A trail point is just the path over time — lat/lon/altitude/ts. Motion
+// (heading/speed/climb) is metadata on the live entity, not part of the trail.
 export interface TrackPoint {
   lat: number;
   lon: number;
   altitude_m: number;
-  heading: number;
-  speed_ms: number;
-  climb_ms: number;
   ts: number;
 }
 
@@ -55,9 +54,6 @@ export class HistoryRepo {
       lat: e.lat,
       lon: e.lon,
       altitude_m: e.altitude_m,
-      heading: e.heading,
-      speed_ms: e.speed_ms,
-      climb_ms: e.climb_ms,
       ts: e.ts,
       recvTs,
     };
@@ -85,9 +81,6 @@ export class HistoryRepo {
         lat: p.lat,
         lon: p.lon,
         altitude_m: p.altitude_m,
-        heading: p.heading,
-        speed_ms: p.speed_ms,
-        climb_ms: p.climb_ms,
         ts: p.ts,
       });
       if (result.length >= limit) break;

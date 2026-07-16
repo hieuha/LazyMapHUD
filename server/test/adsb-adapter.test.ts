@@ -24,17 +24,19 @@ describe('mapAdsbAircraft', () => {
     expect(entities).toHaveLength(1);
     const e = entities[0]!;
     expect(e.id).toBe('adsb-a1b2c3');
+    expect(e.name).toBe('UAL123'); // `flight` callsign, trimmed
     expect(e.type).toBe('aircraft');
     expect(e.lat).toBe(37.615);
     expect(e.lon).toBe(-122.389);
     expect(e.altitude_m).toBeCloseTo(35000 * 0.3048, 3);
-    expect(e.speed_ms).toBeCloseTo(480 * 0.514444, 3);
-    expect(e.heading).toBeCloseTo(270.5, 5);
-    expect(e.climb_ms).toBeCloseTo((-640 * 0.3048) / 60, 5);
+    // Motion travels as meta now (not core fields).
+    expect(e.meta?.speed_ms).toBeCloseTo(480 * 0.514444, 3);
+    expect(e.meta?.heading).toBeCloseTo(270.5, 5);
+    expect(e.meta?.climb_ms).toBeCloseTo((-640 * 0.3048) / 60, 5);
     expect(e.ts).toBe(1752570000 * 1000);
   });
 
-  it('treats "ground" baro altitude as 0m and defaults missing rate/speed fields', () => {
+  it('treats "ground" baro altitude as 0m and omits absent motion fields', () => {
     const sample = {
       aircraft: [
         { hex: 'deadbe', lat: 10, lon: 20, alt_baro: 'ground' as const },
@@ -45,10 +47,10 @@ describe('mapAdsbAircraft', () => {
 
     expect(entities).toHaveLength(1);
     const e = entities[0]!;
+    expect(e.name).toBe('deadbe'); // no `flight` -> falls back to the ICAO hex
     expect(e.altitude_m).toBe(0);
-    expect(e.speed_ms).toBe(0);
-    expect(e.climb_ms).toBe(0);
-    expect(e.heading).toBe(0);
+    // No gs/track/baro_rate reported -> no motion meta at all (omitted, not 0).
+    expect(e.meta).toBeUndefined();
     expect(e.ts).toBe(1_700_000_000_000);
   });
 

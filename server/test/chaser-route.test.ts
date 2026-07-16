@@ -36,14 +36,14 @@ describe('POST /chaser', () => {
     const stored = store.get('chase-1');
     expect(stored).toMatchObject({
       id: 'chase-1',
+      name: 'chase-1', // defaults to id when no name is sent
       type: 'chaser',
       lat: 21.02,
       lon: 105.8,
       altitude_m: 0,
-      heading: 0,
-      speed_ms: 0,
-      climb_ms: 0,
     });
+    // Bare fix with no motion -> no meta at all.
+    expect(stored?.meta).toBeUndefined();
     expect(stored?.ts).toBeTypeOf('number');
   });
 
@@ -65,11 +65,11 @@ describe('POST /chaser', () => {
     });
 
     expect(res.statusCode).toBe(200);
+    // Device still sends flat heading/speed; they're folded into meta alongside
+    // whatever the caller put in meta explicitly.
     expect(store.get('chase-2')).toMatchObject({
       altitude_m: 12,
-      heading: 90,
-      speed_ms: 3,
-      meta: { device: 'ipad-1' },
+      meta: { device: 'ipad-1', heading: 90, speed_ms: 3 },
     });
   });
 
