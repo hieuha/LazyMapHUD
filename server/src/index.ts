@@ -2,7 +2,7 @@
 // webhook/history HTTP routes (Phase 2), and the WebSocket broadcast hub
 // (Phase 3, server->browser only — see plan decision D4).
 import { fileURLToPath } from 'node:url';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
@@ -107,31 +107,27 @@ async function registerOptionalPlugins(): Promise<void> {
   }
 
   if (SERVE_STATIC) {
-    await app.register(fastifyStatic, {
-      root: STATIC_ROOT,
-      // Cache policy that survives a CDN (Cloudflare) in front:
-      // - Vite's content-hashed assets (/assets/*) are immutable → cache forever.
-      // - index.html has a stable URL but points at the current hashes, so it
-      //   must always revalidate (no-cache) or a stale HTML pins an old bundle.
-      setHeaders: (res, filePath) => {
-        // @fastify/static types this as FastifyReply, but `send` calls it with
-        // the raw ServerResponse — use setHeader via a structural cast.
-        const r = res as unknown as { setHeader(k: string, v: string): void };
-        if (filePath.includes(`${sep}assets${sep}`)) {
-          r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        } else if (filePath.endsWith('.html')) {
-          r.setHeader('Cache-Control', 'no-cache');
-        }
-      },
+    await app.register(fastifyStatic, { root: STATIC_ROOT });
+
+    // Cache policy that survives a CDN (Cloudflare) in front, set via a plain
+    // onSend hook (robust across @fastify/static versions):
+    // - Vite's content-hashed assets (/assets/*) are immutable → cache forever.
+    // - HTML (the SPA entry) must always revalidate (no-cache), else a stale
+    //   index.html keeps pinning a previous deploy's asset hashes.
+    app.addHook('onSend', async (_req, reply) => {
+      const url = _req.raw.url ?? '';
+      if (url.startsWith('/assets/')) {
+        reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (String(reply.getHeader('content-type') ?? '').includes('text/html')) {
+        reply.header('Cache-Control', 'no-cache');
+      }
     });
+
     app.setNotFoundHandler((req, reply) => {
       // Only fall back to index.html for GET/HEAD navigations that didn't
       // match an existing static file or API route — keeps 404s honest for
       // API paths (e.g. POST /webhook typos) instead of masking them.
       if ((req.method === 'GET' || req.method === 'HEAD') && !req.url.startsWith('/history') && !req.url.startsWith('/chaser')) {
-        // Never let the SPA entry point get cached by a CDN/browser, else a
-        // new deploy's clients keep loading the previous bundle's hashes.
-        reply.header('Cache-Control', 'no-cache');
         return reply.sendFile('index.html');
       }
       return reply.code(404).send({ error: 'not_found' });
