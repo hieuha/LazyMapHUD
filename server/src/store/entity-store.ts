@@ -1,7 +1,7 @@
-// Live entity state: an in-memory Map layered over the durable HistoryRepo.
+// Live entity state: an in-memory Map layered over the HistoryRepo.
 // The Map is the source of truth for "what's on the HUD right now"; the
-// repo is the source of truth for durability + trail history. Emits
-// 'upsert'/'remove' for the WebSocket hub (Phase 3) to broadcast.
+// repo holds the trail history + latest-per-entity snapshot (also in memory).
+// Emits 'upsert'/'remove' for the WebSocket hub (Phase 3) to broadcast.
 import { EventEmitter } from 'node:events';
 import type { Entity, EntityType } from 'shared/entity';
 import type { HistoryRepo } from './history-repo.js';
@@ -105,7 +105,7 @@ export class EntityStore extends EventEmitter<EntityStoreEvents> {
     return [...this.live.values()].map((r) => r.entity);
   }
 
-  /** Restore latest-per-entity snapshot from SQLite into the live Map on boot. */
+  /** Restore latest-per-entity snapshot from the repo into the live Map on boot (empty after a restart). */
   warmFromHistory(): void {
     const now = Date.now();
     for (const e of this.repo.loadEntities()) {

@@ -3,14 +3,15 @@
 Target topology (plan decision D2): a single VPS running Docker Compose —
 one `app` container (Fastify server, serving the built web static files +
 the WebSocket hub + the HTTP API) behind a `caddy` container (auto-TLS,
-reverse proxy, `wss://` upgrade). The SQLite database file lives on a
-persistent named Docker volume (D1).
+reverse proxy, `wss://` upgrade). The entity snapshot + trail history are
+held in memory only — no database, no data volume, so nothing to back up
+(state resets on restart/redeploy).
 
 ```
 Internet --443/tcp,udp--> [caddy] --3000/tcp (internal)--> [app]
                                                               |
-                                                    /data (named volume)
-                                                    lazymap.db (SQLite)
+                                                    in-memory store
+                                                    (no volume; resets on restart)
 ```
 
 ## Prerequisites
@@ -57,30 +58,21 @@ the `.env` file, which `docker compose` loads automatically and which
 `.gitignore` and `.dockerignore` both exclude from version control and the
 build context.
 
-## Persistent data (D1) — SQLite volume
+## Data persistence — none (in-memory store)
 
-`docker-compose.yml` mounts a named volume `sqlite-data` at `/data` inside
-the `app` container; `SQLITE_PATH=/data/lazymap.db`. This volume survives
-`docker compose down` (without `-v`), image rebuilds, and container
-recreation — only `docker compose down -v` or `docker volume rm` deletes it.
+There is no database and no data volume. The live entity snapshot and trail
+history live entirely in the `app` process's memory, bounded by
+`HISTORY_RETENTION` (default `7d`). Nothing to back up or restore.
 
-**Backup = copy the file.** SQLite in WAL mode (which this app enables) is
-safe to `cp` while the app is running as long as the WAL/SHM sidecar files
-are copied alongside the main file:
+**Consequence:** any restart, image rebuild, or `docker compose up --build`
+starts with an empty map. Entities reappear as soon as live data arrives
+(a `/webhook` push, a configured SondeHub/ADS-B poller, or a `/chaser`
+device), and WS clients reconnect automatically (frontend has built-in
+reconnect/backoff). Past trails from before the restart are not recoverable.
 
-```bash
-# From the host, via a throwaway container that mounts the same volume:
-docker run --rm -v lazymaphud_sqlite-data:/data -v "$(pwd)/backups:/backup" \
-  alpine sh -c "cp /data/lazymap.db* /backup/ 2>/dev/null; echo done"
-```
-
-For a consistent point-in-time snapshot without any risk of a concurrent
-write mid-copy, briefly stop the `app` service first (`docker compose stop
-app`), copy, then `docker compose start app` — the WS clients will
-reconnect automatically (frontend has built-in reconnect/backoff).
-
-Restore = stop `app`, copy a backed-up `lazymap.db*` set back into the
-volume (same throwaway-container trick, reversed), start `app`.
+If durable history ever becomes a requirement, reintroduce a persistent
+store behind the existing `HistoryRepo` interface (`server/src/store/history-repo.ts`)
+— the rest of the server is written against that interface and would not change.
 
 ## Gating `/chaser` before public exposure
 

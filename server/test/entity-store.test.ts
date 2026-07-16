@@ -91,7 +91,7 @@ describe('EntityStore', () => {
     expect(store.snapshot()).toHaveLength(0);
     expect(removeSpy).toHaveBeenCalledWith('balloon-1');
 
-    // History persists in SQLite even after live removal.
+    // History outlives the live entity: the repo keeps it after live removal.
     expect(repo.history('balloon-1')).toHaveLength(1);
     expect(repo.loadEntities()).toHaveLength(1);
   });

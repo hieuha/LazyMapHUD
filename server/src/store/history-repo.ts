@@ -1,13 +1,13 @@
-// Durable SQLite persistence (D1): latest-per-entity snapshot + append-only
-// track history. Synchronous by design — better-sqlite3 is fast enough for
-// the request-path write-through and keeps the store logic simple (no async
-// queueing needed for this traffic profile).
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import Database from 'better-sqlite3';
+// In-memory history store: latest-per-entity snapshot + append-only track
+// history, held in plain Maps. This deliberately has NO durable backend —
+// state is lost on restart. That trade-off keeps the deploy light: no native
+// addon (better-sqlite3) to compile, no data volume, no backup/restore.
+//
+// It keeps the exact public API the SQLite-backed version had, so the
+// EntityStore, the /history route, and the tests are unchanged. Trail depth
+// is bounded by the retention prune (HISTORY_RETENTION), same as before —
+// only now that bound protects RAM instead of disk.
 import type { Entity } from 'shared/entity';
-import { type EntityRow, type TrackPointRow, parseMeta, serializeMeta } from './history-repo-rows.js';
-import { migrate } from './history-repo-schema.js';
 
 export interface TrackPoint {
   lat: number;
@@ -19,106 +19,39 @@ export interface TrackPoint {
   ts: number;
 }
 
-/**
- * SQLite-backed history store. Opens/creates the schema on construction.
- * Pass `:memory:` for tests — schema + WAL both work against an in-memory DB
- * (WAL is a no-op for `:memory:` but harmless to request).
- */
+/** A stored point: the public TrackPoint fields plus the server-receive time. */
+interface StoredPoint extends TrackPoint {
+  /** server wall-clock at insert time — the ordering key history() uses (M2). */
+  recvTs: number;
+}
+
 export class HistoryRepo {
-  private readonly db: Database.Database;
+  /** Latest-per-entity snapshot, keyed by id. */
+  private readonly entities = new Map<string, Entity>();
+  /** Append-only track points per entity id, in arrival order. */
+  private readonly points = new Map<string, StoredPoint[]>();
 
-  constructor(path: string) {
-    if (path !== ':memory:') {
-      mkdirSync(dirname(path), { recursive: true });
-    }
-    this.db = new Database(path);
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
-    migrate(this.db);
-    this.prepareStatements();
-  }
+  // The `path` arg is accepted for signature compatibility with the previous
+  // SQLite-backed store (callers/tests pass a path or ':memory:'); this
+  // in-memory store ignores it — everything is ':memory:' now.
+  constructor(_path?: string) {}
 
-  // Prepared statements — assigned in prepareStatements(), never left
-  // undefined after construction (declared here purely for the strict TS
-  // "definite assignment" contract).
-  private upsertEntityStmt!: Database.Statement;
-  private insertPointStmt!: Database.Statement;
-  private loadEntitiesStmt!: Database.Statement;
-  private historyStmtNoSince!: Database.Statement;
-  private historyStmtSince!: Database.Statement;
-  private pruneStmt!: Database.Statement;
-
-  private prepareStatements(): void {
-    this.upsertEntityStmt = this.db.prepare(`
-      INSERT INTO entities (id, type, lat, lon, altitude_m, heading, speed_ms, climb_ms, ts, meta)
-      VALUES (@id, @type, @lat, @lon, @altitude_m, @heading, @speed_ms, @climb_ms, @ts, @meta)
-      ON CONFLICT(id) DO UPDATE SET
-        type = excluded.type,
-        lat = excluded.lat,
-        lon = excluded.lon,
-        altitude_m = excluded.altitude_m,
-        heading = excluded.heading,
-        speed_ms = excluded.speed_ms,
-        climb_ms = excluded.climb_ms,
-        ts = excluded.ts,
-        meta = excluded.meta
-    `);
-
-    this.insertPointStmt = this.db.prepare(`
-      INSERT INTO track_points (id, lat, lon, altitude_m, heading, speed_ms, climb_ms, ts, recv_ts)
-      VALUES (@id, @lat, @lon, @altitude_m, @heading, @speed_ms, @climb_ms, @ts, @recv_ts)
-    `);
-
-    this.loadEntitiesStmt = this.db.prepare(`SELECT * FROM entities`);
-
-    // Ordered by recv_ts (server wall-clock at insert time), not the
-    // source-supplied ts — see the migrate() comment on recv_ts (M2).
-    // COALESCE guards any legacy row where a prior migration left recv_ts
-    // NULL (shouldn't happen post-backfill, but keeps ordering safe).
-    this.historyStmtNoSince = this.db.prepare(`
-      SELECT lat, lon, altitude_m, heading, speed_ms, climb_ms, ts
-      FROM track_points
-      WHERE id = @id
-      ORDER BY COALESCE(recv_ts, ts) ASC
-      LIMIT @limit
-    `);
-
-    this.historyStmtSince = this.db.prepare(`
-      SELECT lat, lon, altitude_m, heading, speed_ms, climb_ms, ts
-      FROM track_points
-      WHERE id = @id AND ts >= @since
-      ORDER BY COALESCE(recv_ts, ts) ASC
-      LIMIT @limit
-    `);
-
-    this.pruneStmt = this.db.prepare(`DELETE FROM track_points WHERE ts < @cutoff`);
-  }
-
-  /** Upsert the latest-per-entity snapshot row. */
+  /** Upsert the latest-per-entity snapshot. */
   upsertEntity(e: Entity): void {
-    this.upsertEntityStmt.run({
-      id: e.id,
-      type: e.type,
-      lat: e.lat,
-      lon: e.lon,
-      altitude_m: e.altitude_m,
-      heading: e.heading,
-      speed_ms: e.speed_ms,
-      climb_ms: e.climb_ms,
-      ts: e.ts,
-      meta: serializeMeta(e.meta),
-    });
+    // Deep clone so a later external mutation of the caller's object can't
+    // retroactively change the stored snapshot (matches the copy semantics
+    // the SQLite row round-trip gave for free).
+    this.entities.set(e.id, structuredClone(e));
   }
 
   /**
    * Append an immutable track point for this entity's history. `recvTs`
-   * defaults to now (server receive time) and is the column history() orders
-   * by (M2) — override only in tests that need to simulate a specific
-   * receive time.
+   * defaults to now (server receive time) and is the value history() orders
+   * by (M2) — override only in tests that need a specific receive time.
    */
   appendPoint(e: Entity, recvTs: number = Date.now()): void {
-    this.insertPointStmt.run({
-      id: e.id,
+    const arr = this.points.get(e.id);
+    const point: StoredPoint = {
       lat: e.lat,
       lon: e.lon,
       altitude_m: e.altitude_m,
@@ -126,47 +59,63 @@ export class HistoryRepo {
       speed_ms: e.speed_ms,
       climb_ms: e.climb_ms,
       ts: e.ts,
-      recv_ts: recvTs,
-    });
+      recvTs,
+    };
+    if (arr) {
+      arr.push(point);
+    } else {
+      this.points.set(e.id, [point]);
+    }
   }
 
-  /** Recent track points for an entity, oldest-first, for trails/replay. */
+  /** Recent track points for an entity, oldest-first (by recv time), for trails/replay. */
   history(id: string, sinceTs?: number, limit = 1000): TrackPoint[] {
-    const stmt = sinceTs === undefined ? this.historyStmtNoSince : this.historyStmtSince;
-    const params =
-      sinceTs === undefined ? { id, limit } : { id, since: sinceTs, limit };
-    return stmt.all(params) as TrackPointRow[];
+    const arr = this.points.get(id);
+    if (!arr) return [];
+
+    // Order by arrival (recvTs) ascending, not the source-supplied `ts` — a
+    // misbehaving/hostile signed source could scramble `ts` and zig-zag the
+    // trail (M2). Array.sort is stable, so equal recvTs keeps insertion order.
+    const ordered = [...arr].sort((a, b) => a.recvTs - b.recvTs);
+
+    const result: TrackPoint[] = [];
+    for (const p of ordered) {
+      if (sinceTs !== undefined && p.ts < sinceTs) continue;
+      result.push({
+        lat: p.lat,
+        lon: p.lon,
+        altitude_m: p.altitude_m,
+        heading: p.heading,
+        speed_ms: p.speed_ms,
+        climb_ms: p.climb_ms,
+        ts: p.ts,
+      });
+      if (result.length >= limit) break;
+    }
+    return result;
   }
 
-  /** Latest-per-entity snapshot rows — used to warm the live store on boot. */
+  /** Latest-per-entity snapshot — used to warm the live store on boot (empty after a restart). */
   loadEntities(): Entity[] {
-    const rows = this.loadEntitiesStmt.all() as EntityRow[];
-    return rows.map((row) => {
-      const entity: Entity = {
-        id: row.id,
-        type: row.type,
-        lat: row.lat,
-        lon: row.lon,
-        altitude_m: row.altitude_m,
-        heading: row.heading,
-        speed_ms: row.speed_ms,
-        climb_ms: row.climb_ms,
-        ts: row.ts,
-      };
-      const meta = parseMeta(row.meta);
-      if (meta) entity.meta = meta;
-      return entity;
-    });
+    return [...this.entities.values()].map((e) => structuredClone(e));
   }
 
-  /** Delete track_points older than `olderThanMs` ago (retention). Returns rows deleted. */
+  /** Drop track points whose source `ts` is older than `olderThanMs` ago (retention). Returns points removed. */
   prune(olderThanMs: number): number {
     const cutoff = Date.now() - olderThanMs;
-    const result = this.pruneStmt.run({ cutoff });
-    return result.changes;
+    let removed = 0;
+    for (const [id, arr] of this.points) {
+      const kept = arr.filter((p) => p.ts >= cutoff);
+      removed += arr.length - kept.length;
+      if (kept.length === 0) {
+        this.points.delete(id);
+      } else if (kept.length !== arr.length) {
+        this.points.set(id, kept);
+      }
+    }
+    return removed;
   }
 
-  close(): void {
-    this.db.close();
-  }
+  /** No-op — kept so callers that closed a DB connection still type-check. */
+  close(): void {}
 }

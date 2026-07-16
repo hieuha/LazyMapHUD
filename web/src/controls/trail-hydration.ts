@@ -1,5 +1,5 @@
 // Trail hydration: when a live entity is selected/tracked, fetch its real
-// flown path from GET /history/:id (durable SQLite history, Phase 2) and
+// flown path from GET /history/:id (server-side in-memory history) and
 // prepend it to the entity's in-memory trail so the rendered line reflects
 // history the browser never directly observed, not just points seen since
 // this tab connected.

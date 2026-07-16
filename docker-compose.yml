@@ -6,7 +6,6 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
-      SQLITE_PATH: /data/lazymap.db
       SERVE_STATIC: 'true'
       WS_PATH: /ws
       # Secrets/config — set these in a local `.env` file (never committed;
@@ -22,11 +21,6 @@ services:
       # Same-origin behind Caddy by default (no CORS needed); only set this
       # if the web build is served from a different origin than the API.
       CORS_ORIGIN: ${CORS_ORIGIN:-}
-    volumes:
-      # Persistent named volume for the SQLite file (D1) — survives
-      # container recreation/image updates. Backup = copy the file out of
-      # this volume (see docs/deployment.md).
-      - sqlite-data:/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -56,6 +50,5 @@ services:
       - caddy-config:/config
 
 volumes:
-  sqlite-data:
   caddy-data:
   caddy-config:

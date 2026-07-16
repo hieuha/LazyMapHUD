@@ -2,7 +2,7 @@
 
 Real-time tracking map HUD: entities (radiosonde balloons, aircraft,
 vehicles, a chaser device) push position updates over a signed webhook; a
-Node/Fastify service normalizes and durably stores them (SQLite) and
+Node/Fastify service normalizes them (in-memory store, no database) and
 broadcasts live deltas over WebSocket to a Vanilla JS + Vite/Leaflet
 front-end with a tactical-ops HUD (follow-cam, altitude ladder, chaser
 proximity alerts, unit/timezone toggles, multiple basemaps).
@@ -11,8 +11,9 @@ Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 
 ## Stack
 
-- **Server:** Node ≥20, Fastify, `ws` (WebSocket), `better-sqlite3` (durable
-  track history + latest-entity snapshot).
+- **Server:** Node ≥20, Fastify, `ws` (WebSocket). In-memory store for the
+  live entity snapshot + trail history (no database — state is lost on
+  restart; deploy stays light with no native addon or data volume).
 - **Web:** Vanilla TypeScript + Vite + Leaflet. Two static entry points:
   `index.html` (the HUD) and `chase.html` (the Chaser-mode device page).
 - **Shared:** a `shared` workspace package — the canonical `Entity`/wire
@@ -25,7 +26,7 @@ Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 
 ```
 shared/    canonical Entity + wire-protocol contracts (Zod + TS)
-server/    Fastify: webhook/history/chaser routes, WS hub, SQLite store, SondeHub/ADS-B pollers
+server/    Fastify: webhook/history/chaser routes, WS hub, in-memory store, SondeHub/ADS-B pollers
 web/       Vite app: index.html (HUD) + chase.html (chaser device page)
 docs/      webhook-contract.md, deployment.md
 concepts/  the approved HTML mockup this HUD was built from (reference only)
@@ -98,8 +99,7 @@ All variables live in `.env.example` (copy to `.env`, never commit `.env`).
 | `PORT` | `3000` | Server HTTP/WS port |
 | `WEBHOOK_SECRET` | _(none — route disabled if unset)_ | HMAC-SHA256 key for `POST /webhook`. **Required** to accept live data. |
 | `WS_PATH` | `/ws` | WebSocket upgrade path |
-| `SQLITE_PATH` | `./data/lazymap.db` | SQLite file path (`:memory:` for ephemeral/tests); directory created if missing |
-| `HISTORY_RETENTION` | `7d` | How long `track_points` history is kept before pruning (`ms\|s\|m\|h\|d` shorthand or a bare ms integer) |
+| `HISTORY_RETENTION` | `7d` | How long in-memory track history is kept before pruning (`ms\|s\|m\|h\|d` shorthand or a bare ms integer) |
 | `SONDEHUB_SERIALS` | _(empty)_ | Comma-separated SondeHub serials to poll (e.g. `Y0322352,Y0322353`); empty = no poller, map stays empty until fed |
 | `SONDEHUB_POLL_MS` | `15000` | SondeHub poll interval per serial |
 | `ENABLE_ADSB` | `false` | Enable the optional ADS-B poller (needs `ADSB_URL` too) |
@@ -114,10 +114,10 @@ All variables live in `.env.example` (copy to `.env`, never commit `.env`).
 
 ## Deploy
 
-Production target: a single VPS running Docker Compose (`app` + `caddy`),
-with SQLite on a persistent volume. Full walkthrough, backup/restore, and
-how to gate the open `/chaser` endpoint before public exposure:
-**[docs/deployment.md](docs/deployment.md)**.
+Production target: a single VPS running Docker Compose (`app` + `caddy`).
+No database or data volume — the store is in-memory (state resets on
+restart/redeploy). Full walkthrough and how to gate the open `/chaser`
+endpoint before public exposure: **[docs/deployment.md](docs/deployment.md)**.
 
 Quick start:
 

@@ -10,10 +10,6 @@
 # ---------------------------------------------------------------------------
 FROM node:20-slim AS base
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
-# better-sqlite3 needs a C++ toolchain + python to build its native addon.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 FROM base AS deps
@@ -57,14 +53,9 @@ COPY server/tsconfig.json server/tsconfig.json
 COPY --from=web-build /app/web/dist web/dist
 
 ENV PORT=3000 \
-    SQLITE_PATH=/data/lazymap.db \
     SERVE_STATIC=true \
     STATIC_ROOT=/app/web/dist \
     WS_PATH=/ws
-
-# Named volume mount point for the durable SQLite file (D1) — see
-# docker-compose.yml for the actual named volume binding.
-VOLUME ["/data"]
 
 EXPOSE 3000
 

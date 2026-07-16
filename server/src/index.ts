@@ -1,4 +1,4 @@
-// Fastify boot — process startup, health check, the durable entity store +
+// Fastify boot — process startup, health check, the in-memory entity store +
 // webhook/history HTTP routes (Phase 2), and the WebSocket broadcast hub
 // (Phase 3, server->browser only — see plan decision D4).
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,8 @@ import { mapAdsbAircraft } from './adapters/adsb.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = Number(process.env.PORT ?? 3000);
-const SQLITE_PATH = process.env.SQLITE_PATH ?? './data/lazymap.db';
+// Trail history + entity snapshot are in-memory only (no durable store).
+// HISTORY_RETENTION bounds how far back the in-memory trail is kept.
 const HISTORY_RETENTION_MS = parseDurationMs(process.env.HISTORY_RETENTION ?? '7d');
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const WS_PATH = process.env.WS_PATH ?? '/ws';
@@ -61,7 +62,7 @@ const app = Fastify({
   logger: true,
 });
 
-const repo = new HistoryRepo(SQLITE_PATH);
+const repo = new HistoryRepo();
 const store = new EntityStore(repo);
 
 app.get('/healthz', async () => {
@@ -177,7 +178,7 @@ async function start(): Promise<void> {
 async function shutdown(): Promise<void> {
   for (const poller of pollers) poller.stop();
   store.stopSweep();
-  if (pruneTimer) clearInterval(pruneTimer); // stop prune before closing DB (avoids throw on closed connection)
+  if (pruneTimer) clearInterval(pruneTimer);
   if (hub) await hub.close();
   await app.close();
   repo.close();
