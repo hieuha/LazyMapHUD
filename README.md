@@ -94,6 +94,22 @@ WEBHOOK_SECRET=xxx COUNT=10 CHASERS=3 node scripts/simulate-targets.mjs
 WEBHOOK_SECRET=xxx TARGET=Y0342819 node scripts/chase-pursuit.mjs
 ```
 
+## Live data — SondeHub auto-feed
+
+`scripts/sondehub-station-poller.mjs` polls the [SondeHub](https://sondehub.org)
+area API around a launch station's coordinates and feeds every sonde's latest
+frame to `/webhook` — no serial needed, it auto-catches whatever launches.
+
+```bash
+# default: Hanoi station 48820 (105.80,21.0333), 250 km radius, 1 s interval
+WEBHOOK_SECRET=xxx node scripts/sondehub-station-poller.mjs
+# tune: LAT, LON, RADIUS_M, LAST_S (telemetry window s), PERIOD_MS, URL
+```
+
+In production it runs as a systemd service, gated by cron to only run during
+launch windows (a sonde flight is ~2.5 h) to save resources —
+see **[docs/deployment.md](docs/deployment.md)**.
+
 ## Chaser mode & multiple chasers
 
 A chaser (recovery vehicle) reports its GPS to the open `POST /chaser`
