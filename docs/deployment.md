@@ -186,76 +186,11 @@ git pull && docker compose up -d --build   # rebuilds + restarts app; caddy unto
 
 ## Live radiosonde feed (SondeHub poller)
 
-`scripts/sondehub-station-poller.mjs` polls the SondeHub area API around a
-launch station's coordinates and feeds every sonde's latest frame to
-`/webhook` (HMAC-signed, straight to `127.0.0.1:3000`, bypassing the CDN). It
-auto-catches whatever launches — no serial needed. There is no
-telemetry-by-station endpoint on SondeHub; the `/sondes?lat&lon&distance` area
-query around the station's coordinates is the way. Station **48820 = Ha Noi**
-sits at `105.80, 21.0333` and launches at **00Z & 12Z (UTC)**.
-
-### Run it as a service
-
-```bash
-NODE_DIR=$(dirname "$(which node)")
-sudo tee /etc/systemd/system/lazymaphud-sonde.service >/dev/null <<UNIT
-[Unit]
-Description=LazyMapHUD SondeHub poller (Hanoi 48820)
-After=network-online.target lazymaphud.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/var/www/lazymaphud
-EnvironmentFile=/var/www/lazymaphud/.env
-Environment=URL=http://127.0.0.1:3000/webhook
-Environment=PATH=$NODE_DIR:/usr/bin:/bin
-ExecStart=$NODE_DIR/node scripts/sondehub-station-poller.mjs
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-sudo systemctl daemon-reload
-```
-
-`WEBHOOK_SECRET` comes from `.env` (EnvironmentFile). Tunables are env vars
-(`LAT`, `LON`, `RADIUS_M`, `LAST_S`, `PERIOD_MS`) — add `Environment=` lines to
-override. `enable --now` it to run 24/7, or gate it with cron (below) to save
-resources.
-
-### Gate to launch windows with cron
-
-A sonde flight lasts ~2.5 h (ascent to ~30 km burst, then descent), so run the
-poller from ~15 min before launch to ~3 h after, and keep it stopped the rest
-of the day. Use `CRON_TZ=UTC` so the launch times (00Z/12Z) map directly,
-independent of the server's timezone:
-
-```bash
-sudo systemctl disable --now lazymaphud-sonde   # cron controls it, not boot
-sudo tee /etc/cron.d/lazymaphud-sonde >/dev/null <<'CRON'
-# Hanoi 48820 launches 00Z & 12Z (UTC). Open 15 min before, close ~3 h after.
-CRON_TZ=UTC
-45 23 * * *  root  systemctl start lazymaphud-sonde
-0  3  * * *  root  systemctl stop  lazymaphud-sonde
-45 11 * * *  root  systemctl start lazymaphud-sonde
-0  15 * * *  root  systemctl stop  lazymaphud-sonde
-CRON
-sudo systemctl restart cron
-```
-
-Windows in local ICT (UTC+7): **06:45–10:00** (00Z launch) and **18:45–22:00**
-(12Z launch). Between windows the service is stopped and the map empties (live
-entities TTL out after ~2 min) — expected.
-
-### Monitor
-
-```bash
-journalctl -u lazymaphud-sonde -f      # "tick N — 1/1 fed: Y0xxxxxxx@22479m"
-systemctl status lazymaphud-sonde
-```
+An optional `lazymaphud-sonde` service auto-feeds live radiosonde launches into
+the HUD (SondeHub area API → `/webhook`), gated by cron to only run during
+launch windows. Full setup — the systemd unit, cron windows, tunables, and
+adapting to another station — is in **[docs/sondehub-feed.md](sondehub-feed.md)**.
+Ready-to-copy unit/cron files live in `deploy/systemd/` and `deploy/cron/`.
 
 ## Tiles — fair-use note
 

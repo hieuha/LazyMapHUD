@@ -1,0 +1,31 @@
+# LazyMapHUD SondeHub poller — auto-feed live radiosonde launches near a
+# station into /webhook. See docs/sondehub-feed.md.
+#
+# Adjust WorkingDirectory / EnvironmentFile / User to your repo path + owner.
+# Override tunables (LAT, LON, RADIUS_M, LAST_S, PERIOD_MS) with Environment=
+# lines. Node from nodesource is at /usr/bin/node.
+#
+# Install:
+#   sudo cp deploy/systemd/lazymaphud-sonde.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lazymaphud-sonde        # run 24/7
+#   # ...or gate with cron (deploy/cron/lazymaphud-sonde) to save resources:
+#   sudo systemctl disable --now lazymaphud-sonde
+[Unit]
+Description=LazyMapHUD SondeHub poller (Hanoi 48820)
+After=network-online.target lazymaphud.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/lazymaphud
+EnvironmentFile=/var/www/lazymaphud/.env
+Environment=URL=http://127.0.0.1:3000/webhook
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node scripts/sondehub-station-poller.mjs
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

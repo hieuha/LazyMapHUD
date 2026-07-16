@@ -1,0 +1,17 @@
+# LazyMapHUD SondeHub poller launch windows. See docs/sondehub-feed.md.
+#
+# Runs the poller only around Hanoi 48820's launches (00Z & 12Z UTC): open
+# 15 min before, close ~3 h after (a sonde flight is ~2.5 h). CRON_TZ=UTC is
+# REQUIRED so the hours are UTC regardless of the server's timezone.
+#
+# Install:
+#   sudo systemctl disable --now lazymaphud-sonde     # cron controls it, not boot
+#   sudo cp deploy/cron/lazymaphud-sonde /etc/cron.d/lazymaphud-sonde
+#   sudo systemctl restart cron
+#
+# Local ICT (UTC+7) windows: 06:45-10:00 (00Z) and 18:45-22:00 (12Z).
+CRON_TZ=UTC
+45 23 * * *  root  systemctl start lazymaphud-sonde
+0  3  * * *  root  systemctl stop  lazymaphud-sonde
+45 11 * * *  root  systemctl start lazymaphud-sonde
+0  15 * * *  root  systemctl stop  lazymaphud-sonde

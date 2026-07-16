@@ -108,7 +108,8 @@ WEBHOOK_SECRET=xxx node scripts/sondehub-station-poller.mjs
 
 In production it runs as a systemd service, gated by cron to only run during
 launch windows (a sonde flight is ~2.5 h) to save resources —
-see **[docs/deployment.md](docs/deployment.md)**.
+see **[docs/sondehub-feed.md](docs/sondehub-feed.md)** (ready-to-copy unit +
+cron files are in `deploy/systemd/` and `deploy/cron/`).
 
 ## Chaser mode & multiple chasers
 

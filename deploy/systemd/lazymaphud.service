@@ -1,0 +1,31 @@
+# LazyMapHUD app — Fastify server (HTTP API + WebSocket hub + static web/dist).
+# Bare-metal deploy. See docs/deployment.md.
+#
+# Adjust before installing if your paths differ:
+#   - WorkingDirectory / EnvironmentFile : the repo path (default /var/www/lazymaphud)
+#   - User                               : the account that owns the repo
+#   - ExecStart pnpm path                : run `which pnpm` (usually /usr/bin/pnpm)
+# .env must contain WEBHOOK_SECRET, PORT=3000, HOST=127.0.0.1, SERVE_STATIC=true.
+#
+# Install:
+#   sudo cp deploy/systemd/lazymaphud.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now lazymaphud
+[Unit]
+Description=LazyMapHUD tracking server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/lazymaphud
+EnvironmentFile=/var/www/lazymaphud/.env
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/pnpm --filter server start
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
