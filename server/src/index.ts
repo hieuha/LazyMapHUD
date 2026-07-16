@@ -114,10 +114,13 @@ async function registerOptionalPlugins(): Promise<void> {
       // - index.html has a stable URL but points at the current hashes, so it
       //   must always revalidate (no-cache) or a stale HTML pins an old bundle.
       setHeaders: (res, filePath) => {
+        // @fastify/static types this as FastifyReply, but `send` calls it with
+        // the raw ServerResponse — use setHeader via a structural cast.
+        const r = res as unknown as { setHeader(k: string, v: string): void };
         if (filePath.includes(`${sep}assets${sep}`)) {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          r.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         } else if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache');
+          r.setHeader('Cache-Control', 'no-cache');
         }
       },
     });
