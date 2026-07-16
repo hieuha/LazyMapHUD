@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # One-shot BARE-METAL VPS deploy for LazyMapHUD (no Docker).
 #
-# On a fresh Ubuntu/Debian VPS it: installs Node 20 + pnpm + Caddy (if
+# On a fresh Ubuntu/Debian VPS it: installs Node 20 + pnpm + Caddy (only if
 # missing), builds the web bundle, writes .env (generating a strong
 # WEBHOOK_SECRET), installs a systemd service that runs the Fastify server
-# (which also serves the built web + WebSocket hub), and points native Caddy
-# at it for automatic Let's Encrypt TLS. Idempotent: re-run to redeploy.
+# (which also serves the built web + WebSocket hub), and adds a Caddy site for
+# automatic Let's Encrypt TLS. Idempotent: re-run to redeploy.
+#
+# If Caddy is ALREADY installed, the script never overwrites your Caddyfile —
+# it drops a separate /etc/caddy/lazymaphud.caddy and `import`s it (backing up
+# + validating first), so your other sites are left untouched.
 #
 # Prerequisites: run as root/sudo, DNS A/AAAA for your domain -> this VPS,
 # ports 80/443 open. Use ':80' as the domain for a local, no-TLS smoke test.
@@ -38,8 +42,12 @@ command -v curl >/dev/null 2>&1 || apt_get curl
 corepack enable >/dev/null 2>&1 || npm install -g corepack >/dev/null 2>&1
 corepack prepare pnpm@10.28.2 --activate
 
-# --- 2) Caddy (skip for the :80 no-TLS test if you prefer) -------------------
-if ! command -v caddy >/dev/null 2>&1; then
+# --- 2) Caddy ---------------------------------------------------------------
+if command -v caddy >/dev/null 2>&1; then
+  CADDY_PREEXISTING=1
+  echo "==> Caddy already installed — will add a site config without touching your Caddyfile."
+else
+  CADDY_PREEXISTING=0
   echo "==> Installing Caddy…"
   apt_get debian-keyring debian-archive-keyring apt-transport-https
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
@@ -101,15 +109,38 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now lazymaphud
 
-# --- 6) Caddy reverse proxy -------------------------------------------------
-echo "==> Configuring Caddy for $DOMAIN"
-cat > /etc/caddy/Caddyfile <<CADDY
+# --- 6) Caddy reverse proxy (add a site, never clobber an existing config) ---
+SITE=/etc/caddy/lazymaphud.caddy
+MAIN=/etc/caddy/Caddyfile
+echo "==> Writing site config $SITE"
+cat > "$SITE" <<CADDY
 $DOMAIN {
 	reverse_proxy localhost:$PORT
 	encode gzip
 }
 CADDY
-systemctl reload caddy || systemctl restart caddy
+
+if [ "$CADDY_PREEXISTING" = "1" ]; then
+  # Add an `import` to the existing Caddyfile (additive — leaves other sites
+  # intact), but back up + validate first and revert if anything is off.
+  if ! grep -qsF "import $SITE" "$MAIN"; then
+    cp "$MAIN" "$MAIN.lazymaphud.bak" 2>/dev/null || true
+    printf '\nimport %s\n' "$SITE" >> "$MAIN"
+  fi
+  if caddy validate --adapter caddyfile --config "$MAIN" >/dev/null 2>&1; then
+    systemctl reload caddy
+    echo "==> Added the LazyMapHUD site to your Caddy and reloaded (backup: $MAIN.lazymaphud.bak)."
+  else
+    [ -f "$MAIN.lazymaphud.bak" ] && mv "$MAIN.lazymaphud.bak" "$MAIN"
+    echo "WARN: your Caddyfile didn't validate with the import; reverted." >&2
+    echo "      Add this line to $MAIN yourself, then 'systemctl reload caddy':" >&2
+    echo "        import $SITE" >&2
+  fi
+else
+  # Fresh Caddy we installed: own the main Caddyfile with a single import.
+  echo "import $SITE" > "$MAIN"
+  systemctl reload caddy || systemctl restart caddy
+fi
 
 # --- 7) Health check --------------------------------------------------------
 echo "==> Waiting for the app to become healthy…"

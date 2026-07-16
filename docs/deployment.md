@@ -42,6 +42,11 @@ server (which also serves the built web + WebSocket hub on port 3000), and
 points Caddy at `localhost:3000` for automatic Let's Encrypt TLS. Idempotent —
 re-run to redeploy. Use `:80` as the domain for a local, no-TLS smoke test.
 
+If Caddy is **already installed** (you run other sites on it), the script does
+not touch your `Caddyfile` — it writes a separate `/etc/caddy/lazymaphud.caddy`
+and adds an `import` for it (backing up + validating first, reverting on
+error), so your existing sites keep working.
+
 ```bash
 systemctl status lazymaphud          # service state
 journalctl -u lazymaphud -f          # live logs
