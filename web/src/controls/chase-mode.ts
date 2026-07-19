@@ -11,7 +11,7 @@
 // The status chip atop the roster panel shows two independent signals:
 //   GPS    — does the device have a location fix (and how accurate)
 //   UPLINK — are fixes reaching the server (POST /chaser)
-import { postChaserFix } from '../net/chaser-post.js';
+import { postChaserFix, leaveChaser } from '../net/chaser-post.js';
 import { setMyChaser } from '../chaser/my-chaser.js';
 import { store } from '../state/store.js';
 
@@ -70,6 +70,21 @@ function buildChip(name: string): Chip {
   };
 }
 
+/** Show + wire the LEAVE CHASE button: signal the server to drop this chaser
+ * now (not after the ~2 min TTL), then reload as a pure viewer (which also
+ * stops the GPS uplink). Only wired while in chase mode. */
+function wireLeaveButton(name: string): void {
+  const btn = document.getElementById('chase-leave-btn') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.hidden = false;
+  btn.addEventListener('click', () => {
+    leaveChaser(name); // beacon the departure so viewers see it vanish immediately
+    const url = new URL(window.location.href);
+    url.searchParams.delete('chase');
+    window.location.assign(url.toString()); // reload without ?chase= → viewer, uplink stops
+  });
+}
+
 /** Activate chase mode if `?chase=<name>` is present; otherwise do nothing. */
 export function wireChaseMode(): void {
   const name = chaseName();
@@ -78,6 +93,7 @@ export function wireChaseMode(): void {
   // Track the viewer's own device so the ring/proximity center on it.
   store.isChaseMode = true;
   setMyChaser(name);
+  wireLeaveButton(name);
   const chip = buildChip(name);
 
   if (!navigator.geolocation) {

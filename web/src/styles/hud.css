@@ -126,16 +126,21 @@ body {
 .map-opt.disabled:hover { background:none; }
 .map-opt .tagx { margin-left:auto; font-size:7px; letter-spacing:0.1em; color:var(--txt-3); border:1px solid var(--line); padding:0 3px; text-transform:uppercase; }
 
-/* JOIN CHASE — topbar action button (hidden when already a chaser) */
-#chase-join-btn {
+/* JOIN / LEAVE CHASE — topbar action buttons (mutually exclusive: JOIN shows
+   when a viewer, LEAVE shows while chasing). */
+#chase-join-btn, #chase-leave-btn {
   display:flex; align-items:center; gap:6px; padding:4px 11px; border:1px solid var(--line-2);
   background:rgba(55,224,255,0.06); font-family:inherit; font-size:10px; letter-spacing:0.14em;
   color:var(--txt-1); text-transform:uppercase; cursor:pointer; user-select:none;
 }
 #chase-join-btn:hover { border-color:var(--cyan); background:rgba(55,224,255,0.12); color:var(--cyan); }
-#chase-join-btn:focus-visible { outline:1px solid var(--cyan); outline-offset:2px; }
-#chase-join-btn[hidden] { display:none; }
+#chase-join-btn:focus-visible, #chase-leave-btn:focus-visible { outline:1px solid var(--cyan); outline-offset:2px; }
+#chase-join-btn[hidden], #chase-leave-btn[hidden] { display:none; }
 #chase-join-btn .cj-glyph { color:var(--cyan); font-size:11px; }
+/* LEAVE is a departure action — amber tint to distinguish from JOIN. */
+#chase-leave-btn { background:rgba(255,176,32,0.07); }
+#chase-leave-btn:hover { border-color:var(--amber); background:rgba(255,176,32,0.14); color:var(--amber); }
+#chase-leave-btn .cj-glyph { color:var(--amber); font-size:11px; }
 
 /* Tactical modal (native <dialog>) — used by the JOIN CHASE flow */
 .hud-modal {

@@ -100,6 +100,20 @@ export class EntityStore extends EventEmitter<EntityStoreEvents> {
     return this.live.get(id)?.entity;
   }
 
+  /**
+   * Explicitly drop an entity from the live view (e.g. a chaser leaving via
+   * the LEAVE CHASE action) instead of waiting out its TTL. Emits 'remove' so
+   * the WS hub broadcasts the departure immediately, and clears the durable
+   * snapshot so a reboot won't resurrect it (trail history is left intact).
+   * Returns whether it was live. No-op when absent.
+   */
+  remove(id: string): boolean {
+    const existed = this.live.delete(id);
+    this.repo.removeEntity(id);
+    if (existed) this.emit('remove', id);
+    return existed;
+  }
+
   /** Snapshot of all currently-live entities. */
   snapshot(): Entity[] {
     return [...this.live.values()].map((r) => r.entity);

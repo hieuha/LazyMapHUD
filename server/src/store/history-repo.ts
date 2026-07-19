@@ -88,6 +88,12 @@ export class HistoryRepo {
     return result;
   }
 
+  /** Drop an entity's latest snapshot so it won't warm the live store on the
+   * next boot (its trail history in `points` is left intact for replay). */
+  removeEntity(id: string): void {
+    this.entities.delete(id);
+  }
+
   /** Latest-per-entity snapshot — used to warm the live store on boot (empty after a restart). */
   loadEntities(): Entity[] {
     return [...this.entities.values()].map((e) => structuredClone(e));

@@ -128,4 +128,29 @@ describe('POST /chaser', () => {
     expect(statuses.filter((s) => s === 200).length).toBe(2);
     expect(statuses.filter((s) => s === 429).length).toBe(2);
   });
+
+  it('POST /chaser/leave drops a live chaser immediately', async () => {
+    registerChaserRoute(app, { store });
+
+    await app.inject({ method: 'POST', url: '/chaser', payload: { id: 'chase-9', lat: 21, lon: 105 } });
+    expect(store.get('chase-9')).toBeDefined();
+
+    const res = await app.inject({ method: 'POST', url: '/chaser/leave', payload: { id: 'chase-9' } });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true, removed: true });
+    expect(store.get('chase-9')).toBeUndefined();
+  });
+
+  it('POST /chaser/leave refuses to drop a non-chaser entity (403)', async () => {
+    registerChaserRoute(app, { store });
+
+    // A sonde must not be removable via the open chaser-leave endpoint.
+    store.upsert({ id: 'sonde-x', name: 'sonde-x', type: 'balloon', lat: 21, lon: 105, altitude_m: 1000, ts: Date.now() });
+
+    const res = await app.inject({ method: 'POST', url: '/chaser/leave', payload: { id: 'sonde-x' } });
+
+    expect(res.statusCode).toBe(403);
+    expect(store.get('sonde-x')).toBeDefined();
+  });
 });

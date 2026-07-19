@@ -44,6 +44,9 @@ const ChaserPayloadSchema = z.object({
   meta: EntitySchema.shape.meta,
 });
 
+// A chaser leaving only needs to identify itself by id.
+const LeavePayloadSchema = z.object({ id: z.string().min(1) });
+
 function toEntity(payload: z.infer<typeof ChaserPayloadSchema>): unknown {
   const meta: Record<string, string | number | boolean> = { ...(payload.meta ?? {}) };
   if (payload.heading !== undefined) meta.heading = payload.heading;
@@ -104,4 +107,27 @@ export function registerChaserRoute(app: FastifyInstance, options: ChaserRouteOp
       return reply.code(200).send({ ok: true, id: entity.id });
     },
   );
+
+  // POST /chaser/leave — a chaser announcing it's leaving, so it drops from the
+  // map now instead of after the live TTL (~2 min). Same open trust model as
+  // POST /chaser, but gated to type 'chaser': this endpoint must not let anyone
+  // drop sondes/aircraft, only chasers (which are already fully spoofable here).
+  app.post('/chaser/leave', { bodyLimit: 512 }, async (req: FastifyRequest, reply) => {
+    if (!limiter.allow(req.ip)) {
+      return reply.code(429).send({ error: 'rate_limited', message: 'too many requests' });
+    }
+
+    const parsed = LeavePayloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'bad_request', message: 'invalid leave payload' });
+    }
+
+    const existing = store.get(parsed.data.id);
+    if (existing && existing.type !== 'chaser') {
+      return reply.code(403).send({ error: 'forbidden', message: 'not a chaser' });
+    }
+
+    const removed = store.remove(parsed.data.id);
+    return reply.code(200).send({ ok: true, removed });
+  });
 }

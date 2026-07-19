@@ -36,3 +36,29 @@ export async function postChaserFix(fix: ChaserFix): Promise<PostResult> {
     return { ok: false, reason: err instanceof Error ? err.message : 'network error' };
   }
 }
+
+/**
+ * Tell the server this chaser is leaving so it drops from the map immediately
+ * (not after the ~2 min live TTL). Fire-and-forget: uses `sendBeacon` so the
+ * request still delivers while the page is navigating away (the LEAVE CHASE
+ * button redirects to the viewer URL right after), falling back to a
+ * `keepalive` fetch where sendBeacon is unavailable.
+ */
+export function leaveChaser(id: string): void {
+  const url = `${apiBase()}/chaser/leave`;
+  const body = JSON.stringify({ id });
+  try {
+    if (navigator.sendBeacon) {
+      const blob = new Blob([body], { type: 'application/json' });
+      if (navigator.sendBeacon(url, blob)) return;
+    }
+  } catch {
+    /* fall through to fetch */
+  }
+  void fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
