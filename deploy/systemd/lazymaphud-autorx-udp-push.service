@@ -1,0 +1,42 @@
+# LazyMapHUD auto_rx UDP PUSH sidecar — install this on the auto_rx STATION box
+# (e.g. a Raspberry Pi), NOT on the LazyMapHUD server. It listens to auto_rx's
+# Payload Summary UDP broadcast (port 55673) and pushes each decoded frame to
+# LazyMapHUD's public /webhook. Push, not poll — and it does NOT need the auto_rx
+# web server ([web], port 5000) running.
+#
+# Prereq — enable the feed in auto_rx's station.cfg (on by default):
+#   [oziplotter]
+#   payload_summary_enabled = True
+#   payload_summary_port = 55673
+#
+# Setup on the station:
+#   sudo install -Dm755 scripts/autorx_udp_push.py /opt/lazymaphud-push/autorx_udp_push.py
+#   # secrets file (root-only): WEBHOOK_URL + WEBHOOK_SECRET, one KEY=VALUE per line
+#   sudo tee /etc/lazymaphud-push.env >/dev/null <<'EOF'
+#   WEBHOOK_URL=https://map.hatrunghieu.com/webhook
+#   WEBHOOK_SECRET=<same secret as the LazyMapHUD server>
+#   EOF
+#   sudo chmod 600 /etc/lazymaphud-push.env
+#   sudo cp deploy/systemd/lazymaphud-autorx-udp-push.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lazymaphud-autorx-udp-push
+#   journalctl -u lazymaphud-autorx-udp-push -f
+#
+# This replaces the port-5000 poller as the telemetry source. Disable that one
+# first so the two don't double-feed the same webhook:
+#   sudo systemctl disable --now lazymaphud-autorx-push
+[Unit]
+Description=LazyMapHUD auto_rx UDP push sidecar (PAYLOAD_SUMMARY -> remote webhook)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# auto_rx typically runs as its own user (often 'pi'); root is fine too.
+EnvironmentFile=/etc/lazymaphud-push.env
+ExecStart=/usr/bin/python3 /opt/lazymaphud-push/autorx_udp_push.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+# LazyMapHUD auto_rx poller — auto-feed live radiosonde telemetry from a LOCAL
+# radiosonde_auto_rx station straight into /webhook (no SondeHub round-trip).
+# See docs/sondehub-feed.md.
+#
+# Adjust WorkingDirectory / EnvironmentFile / User to your repo path + owner.
+# AUTORX_HOST must be reachable from this box (the station is on a Tailscale
+# 100.x address — the server must be on the same tailnet). Override tunables
+# (FRESH_S, PERIOD_MS) with Environment= lines. Node from nodesource is at
+# /usr/bin/node.
+#
+# This replaces the SondeHub poller as the telemetry source. Disable that one
+# first so the two don't double-feed the same webhook:
+#   sudo systemctl disable --now lazymaphud-sonde
+#
+# Install:
+#   sudo cp deploy/systemd/lazymaphud-autorx.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lazymaphud-autorx
+[Unit]
+Description=LazyMapHUD auto_rx poller (local radiosonde_auto_rx station)
+After=network-online.target lazymaphud.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/lazymaphud
+EnvironmentFile=/var/www/lazymaphud/.env
+Environment=URL=http://127.0.0.1:3000/webhook
+Environment=AUTORX_HOST=100.123.219.82:5000
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node scripts/autorx-poller.mjs
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

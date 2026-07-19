@@ -1,0 +1,32 @@
+# LazyMapHUD auto_rx PUSH sidecar — install this on the auto_rx STATION box
+# (e.g. 100.123.219.82), NOT on the LazyMapHUD server. It reads the station's
+# own local auto_rx telemetry and pushes it to LazyMapHUD's public /webhook, so
+# LazyMapHUD never has to reach back into the station.
+#
+# Setup on the station:
+#   sudo install -Dm755 scripts/autorx_push.py /opt/lazymaphud-push/autorx_push.py
+#   # secrets file (root-only): WEBHOOK_URL + WEBHOOK_SECRET, one KEY=VALUE per line
+#   sudo tee /etc/lazymaphud-push.env >/dev/null <<'EOF'
+#   WEBHOOK_URL=https://map.example.org/webhook
+#   WEBHOOK_SECRET=<same secret as the LazyMapHUD server>
+#   EOF
+#   sudo chmod 600 /etc/lazymaphud-push.env
+#   sudo cp deploy/systemd/lazymaphud-autorx-push.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lazymaphud-autorx-push
+#   journalctl -u lazymaphud-autorx-push -f
+[Unit]
+Description=LazyMapHUD auto_rx push sidecar (station -> remote webhook)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# auto_rx typically runs as its own user (often 'pi'); root is fine too.
+EnvironmentFile=/etc/lazymaphud-push.env
+ExecStart=/usr/bin/python3 /opt/lazymaphud-push/autorx_push.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

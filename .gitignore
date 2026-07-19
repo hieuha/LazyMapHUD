@@ -49,3 +49,7 @@ Thumbs.db
 # Worktrees / external refs (local only)
 worktrees/
 external/
+
+# Python bytecode cache (auto_rx push scripts)
+__pycache__/
+*.pyc
