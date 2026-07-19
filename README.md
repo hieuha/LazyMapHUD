@@ -9,6 +9,13 @@ proximity alerts, unit/timezone toggles, multiple basemaps).
 
 Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 
+## Screenshots
+
+| Live tracking | Recovery proximity alert |
+|---|---|
+| ![Tracking a radiosonde: follow-cam, altitude ladder, and telemetry panel](docs/screenshots/tracking.webp) | ![Chaser xv5hp inside the 1 km recovery ring — TARGET LOCKED alert](docs/screenshots/proximity-chase.webp) |
+| Follow-cam locked on an RS41 sonde at 22 km, with live telemetry (climb, temp, humidity) and the altitude ladder. | Chaser `xv5hp` closes inside the 1 km ring — the HUD flips to the red `TARGET LOCKED` proximity alert. |
+
 ## Stack
 
 - **Server:** Node ≥20, Fastify, `ws` (WebSocket). In-memory store for the
