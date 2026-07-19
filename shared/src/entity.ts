@@ -24,6 +24,18 @@ export const META_MAX_KEYS = 64;
 export const META_MAX_BYTES = 4096;
 
 /**
+ * Allowed charset for an entity `id`. The id is broadcast to every viewer and
+ * interpolated into DOM/CSS-selector lookups on the client (e.g. the roster's
+ * `.row[data-id="…"]`), so it is constrained to letters, digits, space, dot,
+ * dash, and underscore — no quotes/brackets/control chars that could break
+ * selector parsing. Covers every real source id shape: `sonde-<serial>`,
+ * `adsb-<hex>`, and chaser callsigns.
+ */
+export const ENTITY_ID_RE = /^[A-Za-z0-9 ._-]+$/;
+/** Upper bound on id length (ids are short keys, not free text). */
+export const ENTITY_ID_MAX = 64;
+
+/**
  * Canonical, fully-normalized entity — what the store holds and the WebSocket
  * hub broadcasts. `id` and `ts` are always present here (the server fills them
  * from `name` / receive-time when a caller omits them on the wire — see
@@ -57,7 +69,7 @@ const EntityMetaSchema = z
   });
 
 export const EntitySchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).max(ENTITY_ID_MAX).regex(ENTITY_ID_RE),
   name: z.string().min(1),
   type: z.enum(['balloon', 'aircraft', 'vehicle', 'chaser']),
   lat: z.number().min(-90).max(90),

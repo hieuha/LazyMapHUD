@@ -98,6 +98,20 @@ describe('POST /chaser', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('rejects an id with selector-breaking characters with 400 (nothing stored)', async () => {
+    registerChaserRoute(app, { store });
+
+    // `a"]` would break `.row[data-id="…"]` selector interpolation on the client.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/chaser',
+      payload: { id: 'a"]', lat: 21, lon: 105 },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(store.get('a"]')).toBeUndefined();
+  });
+
   it('rate-limits repeated requests from the same IP', async () => {
     registerChaserRoute(app, { store, maxPerSecond: 2 });
 

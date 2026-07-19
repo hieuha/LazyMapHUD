@@ -53,7 +53,10 @@ export class Roster {
 
   refresh(): void {
     this.entities.forEach((e) => {
-      const row = this.el.querySelector<HTMLElement>(`.row[data-id="${e.id}"]`);
+      // CSS.escape the free-form id: a chaser/webhook id like `a"]` would
+      // otherwise produce an invalid selector and throw SyntaxError out of the
+      // render loop (freezing the HUD for every viewer that received it).
+      const row = this.el.querySelector<HTMLElement>(`.row[data-id="${CSS.escape(e.id)}"]`);
       if (!row || !e.cur) return;
       row.classList.toggle('sel', e.id === store.selectedId);
       row.classList.toggle('warn', this.warnIds.has(e.id));
