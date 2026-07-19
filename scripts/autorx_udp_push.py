@@ -116,7 +116,13 @@ def post(body):
     req = urllib.request.Request(
         WEBHOOK_URL,
         data=raw,
-        headers={"content-type": "application/json", "x-signature": sig},
+        # Explicit User-Agent: urllib's default "Python-urllib/x.y" is blocked
+        # by common CDN/WAF bot rules (returns 403 before reaching the server).
+        headers={
+            "content-type": "application/json",
+            "x-signature": sig,
+            "user-agent": "LazyMapHUD-autorx-push/1.0",
+        },
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=10) as res:
