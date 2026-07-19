@@ -126,6 +126,50 @@ body {
 .map-opt.disabled:hover { background:none; }
 .map-opt .tagx { margin-left:auto; font-size:7px; letter-spacing:0.1em; color:var(--txt-3); border:1px solid var(--line); padding:0 3px; text-transform:uppercase; }
 
+/* JOIN CHASE — topbar action button (hidden when already a chaser) */
+#chase-join-btn {
+  display:flex; align-items:center; gap:6px; padding:4px 11px; border:1px solid var(--line-2);
+  background:rgba(55,224,255,0.06); font-family:inherit; font-size:10px; letter-spacing:0.14em;
+  color:var(--txt-1); text-transform:uppercase; cursor:pointer; user-select:none;
+}
+#chase-join-btn:hover { border-color:var(--cyan); background:rgba(55,224,255,0.12); color:var(--cyan); }
+#chase-join-btn:focus-visible { outline:1px solid var(--cyan); outline-offset:2px; }
+#chase-join-btn[hidden] { display:none; }
+#chase-join-btn .cj-glyph { color:var(--cyan); font-size:11px; }
+
+/* Tactical modal (native <dialog>) — used by the JOIN CHASE flow */
+.hud-modal {
+  /* margin:auto centers the modal in the top-layer viewport; needed because
+     the global `* { margin:0 }` reset clobbers the UA dialog centering. */
+  margin:auto; width:min(90vw, 380px); padding:0; border:1px solid var(--line-2); color:var(--txt-1);
+  background:rgba(5,11,16,0.98); box-shadow:0 18px 48px rgba(0,0,0,0.7);
+}
+.hud-modal::backdrop { background:rgba(2,6,9,0.66); backdrop-filter:blur(2px); }
+.hud-modal form { position:relative; padding:16px 18px 14px; }
+.hud-modal form::before { content:""; position:absolute; top:-1px; left:-1px; width:12px; height:12px; border-top:1px solid var(--cyan); border-left:1px solid var(--cyan); }
+.hud-modal form::after { content:""; position:absolute; bottom:-1px; right:-1px; width:12px; height:12px; border-bottom:1px solid var(--cyan); border-right:1px solid var(--cyan); }
+.hud-modal-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.hud-modal-head .accent { width:3px; height:13px; background:var(--cyan); box-shadow:0 0 6px var(--cyan-faint); flex:none; }
+.hud-modal-head .tag { font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--txt-0); }
+.hud-modal-desc { margin:0 0 12px; font-size:10.5px; line-height:1.5; letter-spacing:0.03em; color:var(--txt-2); }
+.hud-modal input {
+  width:100%; box-sizing:border-box; padding:8px 10px; background:rgba(0,0,0,0.35);
+  border:1px solid var(--line-2); color:var(--txt-0); font-family:var(--mono); font-size:13px;
+  letter-spacing:0.06em; outline:none;
+}
+.hud-modal input:focus { border-color:var(--cyan); box-shadow:0 0 8px var(--cyan-faint); }
+.hud-modal-err { margin:8px 0 0; font-size:10px; letter-spacing:0.05em; color:var(--amber); }
+.hud-modal-err[hidden] { display:none; }
+.hud-modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+.hud-btn {
+  font-family:var(--mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+  padding:6px 14px; border:1px solid var(--line-2); background:none; color:var(--txt-1); cursor:pointer;
+}
+.hud-btn.ghost:hover { border-color:var(--txt-1); color:var(--txt-0); }
+.hud-btn.primary { border-color:var(--cyan); color:var(--cyan); background:rgba(55,224,255,0.08); }
+.hud-btn.primary:hover { color:#04070a; background:var(--cyan); font-weight:600; box-shadow:0 0 8px var(--cyan-faint); }
+.hud-btn:focus-visible { outline:1px solid var(--cyan); outline-offset:2px; }
+
 .topbar-spacer { flex:1; }
 .hud-clock { font-family:var(--mono); font-size:14px; letter-spacing:0.06em; color:var(--cyan); font-variant-numeric:tabular-nums;
   padding:0 12px; border-left:1px solid var(--line); align-self:stretch; display:flex; align-items:center; }

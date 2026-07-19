@@ -18,6 +18,7 @@
           <span class="u" id="feed-label">RECONNECTING</span>
         </div>
         <div id="tracking-badge" role="button" tabindex="0" aria-pressed="true" title="Toggle TRACK LOCK"><span class="lock">◎</span><span>TRACKING&nbsp;</span><b id="track-id">—</b></div>
+        <button id="chase-join-btn" type="button" title="Join as a chaser (uplink this device's GPS)" hidden><span class="cj-glyph">◈</span><span>JOIN&nbsp;CHASE</span></button>
         <div class="mapdd opt" id="me-dd" hidden>
           <button id="me-dd-btn" aria-haspopup="true" aria-expanded="false">
             <span class="seg-lab">My&nbsp;Chaser</span><span class="cur" id="me-dd-cur">— auto —</span><span class="car">▾</span>
@@ -126,6 +127,20 @@
         </section>
       </div>
     </div>
+
+    <!-- ============ JOIN-CHASE MODAL ============ -->
+    <dialog id="chase-modal" class="hud-modal" aria-labelledby="chase-modal-title">
+      <form id="chase-form" method="dialog">
+        <div class="hud-modal-head"><span class="accent"></span><span class="tag" id="chase-modal-title">Join Chase</span></div>
+        <p class="hud-modal-desc">Enter your chaser callsign. This device's GPS will uplink under that name — the recovery ring and proximity alerts track around you.</p>
+        <input id="chase-input" type="text" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. Team1" aria-label="Chaser callsign" />
+        <p class="hud-modal-err" id="chase-err" role="alert" hidden></p>
+        <div class="hud-modal-actions">
+          <button type="button" class="hud-btn ghost" id="chase-cancel">Cancel</button>
+          <button type="submit" class="hud-btn primary" id="chase-start">Start&nbsp;Chase</button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="warn-overlay"></div>
     <div id="warn-banner"><span class="wico">⚠</span><span id="warn-text">TARGET LOCKED</span></div>

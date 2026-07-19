@@ -19,6 +19,7 @@ import { Proximity } from './chaser/proximity.js';
 import { resolveMyChaser, initMyChaserId } from './chaser/my-chaser.js';
 import { MyChaserPicker } from './controls/my-chaser-picker.js';
 import { wireChaseMode } from './controls/chase-mode.js';
+import { wireChaseJoin } from './controls/chase-join.js';
 import { ConnectionStatus } from './ui/connection-status.js';
 
 import { wireUnitsToggle } from './controls/units.js';
@@ -76,6 +77,8 @@ function boot(): void {
   // in sync as chasers come and go.
   initMyChaserId();
   wireChaseMode(); // ?chase=<name> turns this HUD into that chaser (GPS uplink)
+  wireChaseJoin(); // topbar JOIN CHASE button → modal → reload with ?chase=<name>
+
   const mePicker = new MyChaserPicker(engine, (id) => {
     const c = engine.chasers.get(id);
     if (c) mapCtrl.panToChaser(c); // selecting a chaser pans + (chase mode) tracks it

@@ -64,7 +64,7 @@ pnpm dev                # runs server (tsx watch) + web (vite) concurrently
   this keeps the browser same-origin in dev, matching the production
   same-origin topology behind Caddy).
 - API/WS: http://localhost:3000, WebSocket at `ws://localhost:3000/ws`.
-- Chaser mode (dev): http://localhost:5173/?chase=Team1 — the HUD also uplinks this device's GPS as chaser "Team1" (needs HTTPS or localhost for geolocation)
+- Chaser mode (dev): http://localhost:5173/?chase=Team1 — the HUD also uplinks this device's GPS as chaser "Team1" (needs HTTPS or localhost for geolocation). Or click the **JOIN CHASE** button in the top bar and enter a callsign — it reloads into that same `?chase=<name>` mode.
 - The map is **empty by default** — no simulated/demo data (plan decision
   D7). Feed it a real entity via `/webhook` (see below) or configure
   `SONDEHUB_SERIALS` to poll a live feed.
