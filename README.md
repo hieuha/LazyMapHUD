@@ -9,6 +9,9 @@ proximity alerts, unit/timezone toggles, multiple basemaps).
 
 Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 
+How the pieces fit together (receiver → webhook → store → WebSocket → HUD):
+**[docs/system-architecture.md](docs/system-architecture.md)**.
+
 ## Screenshots
 
 | Live tracking | Recovery proximity alert |
@@ -36,7 +39,7 @@ Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 shared/    canonical Entity + wire-protocol contracts (Zod + TS)
 server/    Fastify: webhook/history/chaser routes, WS hub, in-memory store, SondeHub/ADS-B pollers
 web/       Vite app: single HUD (index.html); ?chase=<name> = chaser GPS uplink
-docs/      webhook-contract.md, deployment.md, sondehub-feed.md, autorx-feed.md, screenshots/
+docs/      system-architecture.md, webhook-contract.md, deployment.md, sondehub-feed.md, autorx-feed.md, screenshots/
 concepts/  the approved HTML mockup this HUD was built from (reference only)
 ```
 
