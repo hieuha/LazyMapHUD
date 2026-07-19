@@ -6,6 +6,9 @@ station's coordinates and POSTs every sonde's latest frame to `/webhook`
 (HMAC-signed, straight to `127.0.0.1:3000`, bypassing the CDN). It catches
 whatever launches — no serial needed in advance.
 
+> Running your own `radiosonde_auto_rx` receiver? Feed it directly (lower
+> latency, no SondeHub round-trip) — see **[autorx-feed.md](autorx-feed.md)**.
+
 ## Why an area query (not "by station")
 
 SondeHub has **no telemetry-by-station endpoint**. The available endpoints are:

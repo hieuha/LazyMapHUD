@@ -111,6 +111,23 @@ launch windows (a sonde flight is ~2.5 h) to save resources —
 see **[docs/sondehub-feed.md](docs/sondehub-feed.md)** (ready-to-copy unit +
 cron files are in `deploy/systemd/` and `deploy/cron/`).
 
+## Live data — local auto_rx station
+
+Have your own [radiosonde_auto_rx](https://github.com/projecthorus/radiosonde_auto_rx)
+receiver? Feed it straight in — no SondeHub round-trip. auto_rx scans, auto-
+detects, and decodes any sonde in range; a stdlib sidecar on the station pushes
+each decoded frame to `/webhook`. Recommended transport is auto_rx's
+`PAYLOAD_SUMMARY` UDP broadcast (push, real-time, no web server needed):
+
+```bash
+# on the auto_rx station box (pushes out to your public webhook)
+sudo systemctl enable --now lazymaphud-autorx-udp-push
+```
+
+Setup, transport options (UDP vs web-API poll vs server-pull), the fake-packet
+test, and the Cloudflare-403 User-Agent gotcha —
+see **[docs/autorx-feed.md](docs/autorx-feed.md)** (units in `deploy/systemd/`).
+
 ## Chaser mode & multiple chasers
 
 A chaser (recovery vehicle) reports its GPS to the open `POST /chaser`
