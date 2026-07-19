@@ -39,6 +39,8 @@ server/data/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+# ...but the RS41 flight fixtures replay-sondes.mjs ships with ARE tracked test data
+!scripts/fixtures/*_sonde.log
 
 # OS / editor
 .DS_Store
