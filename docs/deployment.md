@@ -192,6 +192,10 @@ launch windows. Full setup — the systemd unit, cron windows, tunables, and
 adapting to another station — is in **[docs/sondehub-feed.md](sondehub-feed.md)**.
 Ready-to-copy unit/cron files live in `deploy/systemd/` and `deploy/cron/`.
 
+Running your own `radiosonde_auto_rx` receiver instead of leaning on SondeHub?
+Feed it in directly (lower latency, no round-trip) with the station-side push
+sidecars — see **[docs/autorx-feed.md](autorx-feed.md)**.
+
 ## Tiles — fair-use note
 
 The HUD's basemaps use public, fair-use tile providers (OpenStreetMap-style)

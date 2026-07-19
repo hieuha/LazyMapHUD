@@ -36,7 +36,7 @@ Reference feed: [SondeHub](https://sondehub.org) radiosonde telemetry.
 shared/    canonical Entity + wire-protocol contracts (Zod + TS)
 server/    Fastify: webhook/history/chaser routes, WS hub, in-memory store, SondeHub/ADS-B pollers
 web/       Vite app: single HUD (index.html); ?chase=<name> = chaser GPS uplink
-docs/      webhook-contract.md, deployment.md
+docs/      webhook-contract.md, deployment.md, sondehub-feed.md, autorx-feed.md, screenshots/
 concepts/  the approved HTML mockup this HUD was built from (reference only)
 ```
 
@@ -167,6 +167,7 @@ All variables live in `.env.example` (copy to `.env`, never commit `.env`).
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | Server HTTP/WS port |
+| `HOST` | `0.0.0.0` | Listen address. Set `127.0.0.1` on a bare-metal deploy behind Caddy so the app port isn't exposed directly (the deploy script does this). |
 | `WEBHOOK_SECRET` | _(none — route disabled if unset)_ | HMAC-SHA256 key for `POST /webhook`. **Required** to accept live data. |
 | `WS_PATH` | `/ws` | WebSocket upgrade path |
 | `HISTORY_RETENTION` | `7d` | How long in-memory track history is kept before pruning (`ms\|s\|m\|h\|d` shorthand or a bare ms integer) |
